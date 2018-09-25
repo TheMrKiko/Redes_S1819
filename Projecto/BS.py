@@ -26,10 +26,13 @@ bytesToSend = str.encode(registerMessage)
 UDPClientSocket = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
 
 # Listen for incoming datagrams
-
+print("pila")
 UDPClientSocket.sendto(bytesToSend ,CSaddrPort)
+print("pilaa")
 
 msgFromServer = UDPClientSocket.recvfrom(bufferSize)
+print("pilaaa")
+
 msg = "Message from Server {}".format(msgFromServer[0])
 
 

@@ -37,20 +37,20 @@ print("UDP server up and listening")
 
 # Listen for incoming datagrams
 
-while(True):
-	bytesAddressPair = UDPServerSocket.recvfrom(bufferSize)
-	message = bytes.decode(bytesAddressPair[0]).split(" ") #string received
-	print(message)
-	#address = bytesAddressPair[1]
-	command = message[0]
-	if command == 'REG':
-		ipaddr = message[1]
-		BSport = message[2]
-		backupServers.append((ipaddr,BSport))
-		bytesToSend = str.encode("RGR OK")
-		UDPServerSocket.sendto(bytesToSend, (localIP, localPort))
-		UDPServerSocket.close()
-		print("+BS ...")
+
+bytesAddressPair = UDPServerSocket.recvfrom(bufferSize)
+message = bytes.decode(bytesAddressPair[0]).split(" ") #string received
+print(message)
+#address = bytesAddressPair[1]
+command = message[0]
+if command == 'REG':
+	bsaddr = message[1]
+	BSport = message[2]
+	backupServers.append((bsaddr,BSport))
+	bytesToSend = str.encode("RGR OK")
+	UDPServerSocket.sendto(bytesToSend, (localIP, localPort))
+	UDPServerSocket.close()
+	print("+BS " + bsaddr + " " + BSport)
     #clientMsg = "Message from Client:{}".format(message)
     #lientIP  = "Client IP Address:{}".format(address)
 
