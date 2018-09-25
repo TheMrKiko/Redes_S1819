@@ -40,6 +40,7 @@ print("UDP server up and listening")
 
 bytesAddressPair = UDPServerSocket.recvfrom(bufferSize)
 message = bytes.decode(bytesAddressPair[0]).split(" ") #string received
+bsAddr = bytesAddressPair[1]
 print(message)
 #address = bytesAddressPair[1]
 command = message[0]
@@ -48,7 +49,7 @@ if command == 'REG':
 	BSport = message[2]
 	backupServers.append((bsaddr,BSport))
 	bytesToSend = str.encode("RGR OK")
-	UDPServerSocket.sendto(bytesToSend, (localIP, localPort))
+	UDPServerSocket.sendto(bytesToSend, bsAddr)
 	UDPServerSocket.close()
 	print("+BS " + bsaddr + " " + BSport)
     #clientMsg = "Message from Client:{}".format(message)

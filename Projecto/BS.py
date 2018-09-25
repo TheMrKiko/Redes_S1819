@@ -26,12 +26,14 @@ bytesToSend = str.encode(registerMessage)
 UDPClientSocket = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
 
 # Listen for incoming datagrams
-print("pila")
+#print("pila")
 UDPClientSocket.sendto(bytesToSend ,CSaddrPort)
-print("pilaa")
+#print("pilaa")
 
 msgFromServer = UDPClientSocket.recvfrom(bufferSize)
-print("pilaaa")
+#print("pilaaa")
+#if bytes.decode(msgFromServer[0]).split(" ")[1] == "NOK":
+#	print("RGR ERR")
 
 msg = "Message from Server {}".format(msgFromServer[0])
 
