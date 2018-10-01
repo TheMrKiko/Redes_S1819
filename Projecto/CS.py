@@ -3,7 +3,7 @@ import sys
 import os
 
 
-localIP     = socket.gethostbyname(socket.gethostname())
+localIP     = "localhost"#socket.gethostbyname(socket.gethostname())
 
 localPort   = sys.argv[2] #command line port
 print(localPort)
@@ -16,9 +16,13 @@ bufferSize  = 1024
 
 backupServers = [] #store BS (ip, port)
 
-#msgFromServer       = "Hello UDP Client"
 
-#bytesToSend         = str.encode(msgFromServer)
+#store user (nick, pw)
+
+#users = [] #case with no users
+users = [("123", "xxx") , ("234", "abc")] #wrong login
+#users = [("123" , "abc")] #right login
+
 
 # Create a datagram socket
 
@@ -60,8 +64,6 @@ def UDPConnect():
    		# Sending a reply to client
 
 
-
-
 def TCPConnect():
 
 	TCPServerSocket = socket.socket(family=socket.AF_INET, type=socket.SOCK_STREAM)
@@ -74,16 +76,48 @@ def TCPConnect():
 
 	print("Client: ", addr)
 
-
-
+	msgFromClient = " "
+	while (msgFromClient[-1] != '\n'):
+		msgFromClient += bytes.decode(connection.recv(bufferSize))
+	msgFromClient = msgFromClient[1:-1] #erase space and \n from string
+	#print("recebi" + msgFromClient)
+	msgFromClient = msgFromClient.split(" ")
+	command = msgFromClient[0]
+	#print(command)
+	if command == "AUT":
+		#print("entrei")
+		msgUser = msgFromClient[1]
+		msgPw = msgFromClient[2]
+		if (msgUser, msgPw) in users: #successful login
+			#print("valido")
+			bytesToSend = str.encode("AUR OK\n")
+			nleft = len(bytesToSend)
+			while (nleft):
+				nleft -= connection.send(bytesToSend)
+		else:
+			found = False
+			for i in range(len(users)): #checks if pw is ok
+				if msgUser == users[i][0] and msgPw != users[i][1]:
+					found = True
+					bytesToSend = str.encode("AUR NOK\n")
+					nleft = len(bytesToSend)
+					while (nleft):
+						nleft -= connection.send(bytesToSend)
+			if not found: #new user
+				bytesToSend = str.encode("AUR NEW\n")
+				nleft = len(bytesToSend)
+				while (nleft):
+					nleft -= connection.send(bytesToSend)
+	connection.close()
+	TCPServerSocket.close()
+	#print("tcp closed")
 
 pid = os.fork()
 if pid == -1:
 	print("erro no fork")
 elif not pid:
 	TCPConnect()
+	sys.exit()
 else:
 	UDPConnect()
-
-
-
+	sys.exit()
