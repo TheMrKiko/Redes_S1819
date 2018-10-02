@@ -8,11 +8,11 @@ import sys
 
 
 csServer = sys.argv[2]
-csPort = sys.argv[4]
-if csPort is None:
+
+if len(sys.argv) < 5:
 	csPort = 58013
 else:
-	csPort = int(csPort)
+	csPort = int(sys.argv[4])
 
 serverAddressPort   = (csServer, csPort)
 
@@ -23,7 +23,11 @@ bufferSize          = 1024
 TCPClientSocket = socket.socket(family=socket.AF_INET, type=socket.SOCK_STREAM)
 TCPClientSocket.connect(serverAddressPort)
 
+"""def func():
+	print("pilinha")
 
+dict = {"f":func}
+dict["f"]()"""
 request = input();
 while request != "exit":
     #print(request)

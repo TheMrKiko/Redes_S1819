@@ -5,13 +5,12 @@ import os
 
 localIP     = "localhost"#socket.gethostbyname(socket.gethostname())
 
-localPort   = sys.argv[2] #command line port
-print(localPort)
-if localPort is None:
+if len(sys.argv) < 3:
 	localPort = 58013
 else:
-	localPort = int(localPort)
+	localPort = int(sys.argv[2]) #command line port
 
+print(localPort)
 bufferSize  = 1024
 
 backupServers = [] #store BS (ip, port)
@@ -19,8 +18,8 @@ backupServers = [] #store BS (ip, port)
 
 #store user (nick, pw)
 
-#users = [] #case with no users
-users = [("123", "xxx") , ("234", "abc")] #wrong login
+users = [] #case with no users
+#users = [("123", "xxx") , ("234", "abc")] #wrong login
 #users = [("123" , "abc")] #right login
 
 
