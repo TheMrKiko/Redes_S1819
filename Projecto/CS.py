@@ -7,25 +7,21 @@ import signal
 localIP = "localhost"#socket.gethostbyname(socket.gethostname())
 bufferSize  = 1024
 backupServers = [] #store BS (ip, port)
-
-#store user (nick, pw)
-users = [] #case with no users
+users = [] #store user (nick, pw)
+#case with no users
 #users = [("123", "xxx") , ("234", "abc")] #wrong login
 #users = [("123" , "abc")] #right login
 
 if len(sys.argv) < 3:
 	localPort = 58013
 else:
-	localPort = int(sys.argv[2]) #command line port
-
-print(localPort)
+	localPort = int(sys.argv[2])
 
 # -------------------------------- PROCESS FOR UDP --------------------------------
 def UDPConnect():
 
 	UDPServerSocket = socket.socket(family = socket.AF_INET, type = socket.SOCK_DGRAM)
 
-	# Bind to address and ip
 	UDPServerSocket.bind((localIP, localPort))
 
 	print(">> UDP server up and listening")
@@ -53,7 +49,6 @@ def UDPConnect():
 
 	signal.signal(signal.SIGINT, UDPSIGINT)
 
-
 	# ------------------- FUNCTIONS TO MANAGE COMMANDS -------------------
 	def registerBS(message, addressstruct):
 		BSaddr = message[1]
@@ -77,11 +72,6 @@ def UDPConnect():
 
 	# CLOSE CONNECTIONS
 	UDPServerSocket.close()
-	#clientMsg = "Message from Client:{}".format(message)
-    #lientIP  = "Client IP Address:{}".format(address)
-
-    #print(clientMsg)
-    #print(clientIP)
 
 # ---------------------------------------------------------------------------------
 # ---------------------------------------------------------------------------------
@@ -100,7 +90,7 @@ def TCPConnect():
 	print(">> Client: ", addr)
     
 	# ------------------- FUNCTIONS TO COMMUNICATE -------------------
-	def TCPSend(message, connection): #PUT \n in the end pls
+	def TCPWrite(message, connection): #PUT \n in the end pls
 		bytesToSend = str.encode(message)
 		nleft = len(bytesToSend)
 		while (nleft):
@@ -127,20 +117,19 @@ def TCPConnect():
 
 	# ------------------- FUNCTIONS TO MANAGE COMMANDS -------------------
 	def authenticateUser(msgFromClient):
-		#print("entrei")
+
 		msgUser = msgFromClient[1]
 		msgPw = msgFromClient[2]
 		if (msgUser, msgPw) in users: #successful login
-			#print("valido")
-			TCPSend("AUR OK\n", connection)
+			TCPWrite("AUR OK\n", connection)
 		else:
 			found = False
 			for i in range(len(users)): #checks if pw is ok
 				if msgUser == users[i][0] and msgPw != users[i][1]:
 					found = True
-					TCPSend("AUR NOK\n", connection)
+					TCPWrite("AUR NOK\n", connection)
 			if not found: #new user
-				TCPSend("AUR NEW\n", connection)
+				TCPWrite("AUR NEW\n", connection)
 	
 	# --------------------------- MAIN ---------------------------
 	dictTCPFunctions = {

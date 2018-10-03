@@ -18,7 +18,7 @@ TCPClientSocket.connect(CSAddrStruct)
 print(">> Client connected to CS")
 
 # FUNCTIONS TO COMMUNICATE IN TCP
-def TCPSend(message, connection): #PUT \n in the end pls
+def TCPWrite(message, connection): #PUT \n in the end pls
 	bytesToSend = str.encode(message)
 	nleft = len(bytesToSend)
 	while (nleft):
@@ -39,7 +39,7 @@ def TCPClose(socket):
 # ------------------- FUNCTIONS TO MANAGE COMMANDS -------------------
 def login(user, pw):
 	message = "AUT" + " " + user + " " + pw + "\n"
-	TCPSend(message, TCPClientSocket)
+	TCPWrite(message, TCPClientSocket)
 	msg = TCPRead(TCPClientSocket)
 	
 # --------------------------- MAIN ---------------------------
