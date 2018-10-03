@@ -1,52 +1,73 @@
 import socket
 import sys
 import os
+import signal
 
-bsPort = sys.argv[2]
-centralServer = sys.argv[4]
+# ------------------------ VARS, CONSTANTS AND ARGS ------------------------
+BSPort = sys.argv[2]
+CSName = sys.argv[4]
 
 if len(sys.argv) < 7:
-	csPort = 58013
+	CSPort = 58013
 else:
-	csPort = int(sys.argv[6])
+	CSPort = int(sys.argv[6])
 
-CSaddrPort   = (socket.gethostbyname(centralServer), csPort)
+CSAddrStruct = (socket.gethostbyname(CSName), CSPort)
 bufferSize  = 1024
 
-registerMessage = "REG " + socket.gethostbyname(socket.gethostname()) + " " + str(bsPort)
-bytesToSend = str.encode(registerMessage)
-
+# -------------------------------- PROCESS FOR UDP --------------------------------
 def UDPConnect():
+
+	UDPClientSocket = socket.socket(family = socket.AF_INET, type = socket.SOCK_DGRAM)
+
+	# FUNCTIONS TO COMMUNICATE
+	def UDPReceive(socket):
+		bytesAddressPair = socket.recvfrom(bufferSize)
+		message = bytes.decode(bytesAddressPair[0])
+		addrstruct = bytesAddressPair[1]
+		print(">> Recieved: ", message)
+		return (message.split(), addrstruct)
 	
-	#msgFromServer       = "Hello UDP Client"
+	def UDPSend(message, socket, addrstruct):
+		bytesToSend = str.encode(message)
+		socket.sendto(bytesToSend, addrstruct)
+		print(">> Sent: ", message)
 
-	#bytesToSend         = str.encode(msgFromServer)
+	def UDPClose(socket):
+		socket.close()
+		print(">> UDP closed")
+	
+	def UDPSIGINT(_, __):
+		UDPClose(UDPClientSocket)
+		sys.exit()
+	
+	signal.signal(signal.SIGINT, UDPSIGINT)
 
-	# Create a datagram socket
+	# ------------------- FUNCTIONS TO MANAGE COMMANDS -------------------
+	def init():
+		message = "REG " + socket.gethostbyname(socket.gethostname()) + " " + str(BSPort)
+		UDPSend(message, UDPClientSocket, CSAddrStruct)
+		msg, addrstruct = UDPReceive(UDPClientSocket)
 
-	UDPClientSocket = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
+	# --------------------------- MAIN ---------------------------
+	init()
 
-	# Listen for incoming datagrams
-
-	UDPClientSocket.sendto(bytesToSend ,CSaddrPort)
-
-	msgFromServer = UDPClientSocket.recvfrom(bufferSize)
-
-	#if bytes.decode(msgFromServer[0]).split(" ")[1] == "NOK":
-	#	print("RGR ERR")
-
-	msg = "Message from Server {}".format(msgFromServer[0])
-
+	# READ MESSAGES
+	#while 1:
+		
+	# CLOSE CONNECTIONS
 	UDPClientSocket.close()
-	print(msg)
 
 
+# ---------------------------------------------------------------------------------
+# ---------------------------------------------------------------------------------
 
+# -------------------------------- PROCESS FOR TCP --------------------------------
 def TCPConnect():
+	print("TCP TODO")
+	# Sending a reply to client
 
-	print("oi")
-# Sending a reply to client
-
+# ------------------------ SEPERATION OF PROCESSES ------------------------
 pid = os.fork()
 if pid == -1:
 	print("erro no fork")

@@ -1,64 +1,56 @@
 import socket
 import sys
 
-
-#msgFromClient       = "Hello TCP Server\n"
-
-#bytesToSend         = str.encode(msgFromClient)
-
-
-csServer = sys.argv[2]
+# ------------------------ VARS, CONSTANTS AND ARGS ------------------------
+CSName = sys.argv[2]
 
 if len(sys.argv) < 5:
-	csPort = 58013
+	CSPort = 58013
 else:
-	csPort = int(sys.argv[4])
+	CSPort = int(sys.argv[4])
 
-serverAddressPort   = (csServer, csPort)
+CSAddrStruct  = (socket.gethostbyname(CSName), CSPort)
+bufferSize = 1024
 
-bufferSize          = 1024
+TCPClientSocket = socket.socket(family = socket.AF_INET, type = socket.SOCK_STREAM)
+TCPClientSocket.connect(CSAddrStruct)
 
+print(">> Client connected to CS")
 
-# Create a TCP socket at client side
-
-TCPClientSocket = socket.socket(family=socket.AF_INET, type=socket.SOCK_STREAM)
-TCPClientSocket.connect(serverAddressPort)
-
-
-def login(user, pw):
-	message = "AUT" + " " + user + " " + pw + "\n"
-	print(message[:-1])
+# FUNCTIONS TO COMMUNICATE IN TCP
+def TCPSend(message, connection): #PUT \n in the end pls
 	bytesToSend = str.encode(message)
-
-
-	# Send to server using created UDP socket
 	nleft = len(bytesToSend)
 	while (nleft):
-		   nleft -= TCPClientSocket.send(bytesToSend)
+		nleft -= connection.send(bytesToSend)
+	print(">> Sent: ", message)
 
+def TCPRead(connection):
+	message = ""
+	while (not len(message) or (len(message) and message[-1] != '\n')):
+		message += bytes.decode(connection.recv(bufferSize))
+	print(">> Recieved: ", message)
+	return message[:-1].split() #erase \n from string
 
-	msgFromServer = " "
-	while (msgFromServer[-1] != '\n'):
-		   msgFromServer += bytes.decode(TCPClientSocket.recv(bufferSize))
-	msgFromServer = msgFromServer[1:-1] #erase space and \n from string
+def TCPClose(socket):
+	socket.close()
+	print(">> TCP closed")
 
-
-	msg = "Message from Server {}".format(msgFromServer)
-
+# ------------------- FUNCTIONS TO MANAGE COMMANDS -------------------
+def login(user, pw):
+	message = "AUT" + " " + user + " " + pw + "\n"
+	TCPSend(message, TCPClientSocket)
+	msg = TCPRead(TCPClientSocket)
 	
-	print(msg)
-	print(list(msgFromServer))
+# --------------------------- MAIN ---------------------------
+dictFunctions = {
+	"login": login
+	}
 
-dictFunctions = {"login": login}
-
-request = input()
-while request != "exit":
-	#print(request)
-	request = request.split(" ")
+while 1:
+	request = input().split()
 	command = request[0]
 	if command == "login":
-		user = request[1]
-		pw = request[2]
-		dictFunctions["login"](user, pw)
-	request = input()
-TCPClientSocket.close()
+		dictFunctions["login"](request[1], request[2])
+	elif command == "exit":
+		TCPClose(TCPClientSocket)

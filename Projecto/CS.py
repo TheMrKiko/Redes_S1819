@@ -3,7 +3,7 @@ import sys
 import os
 import signal
 
-# ------------------------ VARS AND CONSTANTS ------------------------
+# ------------------------ VARS, CONSTANTS AND ARGS ------------------------
 localIP = "localhost"#socket.gethostbyname(socket.gethostname())
 bufferSize  = 1024
 backupServers = [] #store BS (ip, port)
@@ -13,7 +13,6 @@ users = [] #case with no users
 #users = [("123", "xxx") , ("234", "abc")] #wrong login
 #users = [("123" , "abc")] #right login
 
-# ------------------------ ARGS READING ------------------------
 if len(sys.argv) < 3:
 	localPort = 58013
 else:
@@ -29,22 +28,24 @@ def UDPConnect():
 	# Bind to address and ip
 	UDPServerSocket.bind((localIP, localPort))
 
-	print("UDP server up and listening")
+	print(">> UDP server up and listening")
 
-	# FUNTIONS TO COMMUNICATE
+	# FUNCTIONS TO COMMUNICATE
 	def UDPReceive(socket):
 		bytesAddressPair = socket.recvfrom(bufferSize)
-		message = bytes.decode(bytesAddressPair[0]).split() #string received
-		addr = bytesAddressPair[1]
-		return (message, addr)
+		message = bytes.decode(bytesAddressPair[0])
+		addrstruct = bytesAddressPair[1]
+		print(">> Recieved: ", message)
+		return (message.split(), addrstruct)
 	
-	def UDPSend(message, socket, address):
+	def UDPSend(message, socket, addrstruct):
 		bytesToSend = str.encode(message)
-		UDPServerSocket.sendto(bytesToSend, address)
+		socket.sendto(bytesToSend, addrstruct)
+		print(">> Sent: ", message)
 
 	def UDPClose(socket):
 		socket.close()
-		print("tupd closed")
+		print(">> UDP closed")
 	
 	def UDPSIGINT(_, __):
 		UDPClose(UDPServerSocket)
@@ -54,11 +55,11 @@ def UDPConnect():
 
 
 	# ------------------- FUNCTIONS TO MANAGE COMMANDS -------------------
-	def registerBS(message, address):
+	def registerBS(message, addressstruct):
 		BSaddr = message[1]
 		BSport = message[2]
 		backupServers.append((BSaddr, BSport))
-		UDPSend("RGR OK", UDPServerSocket, address)
+		UDPSend("RGR OK", UDPServerSocket, addressstruct)
 		print("+BS " + BSaddr + " " + BSport)
 
 	# --------------------------- MAIN ---------------------------
@@ -68,12 +69,11 @@ def UDPConnect():
 
 	# READ MESSAGES
 	while 1:
-		message, address = UDPReceive(UDPServerSocket)
-		print(message)
+		message, addrstruct = UDPReceive(UDPServerSocket)
 
 		command = message[0]
 		if command == 'REG':
-			dictUDPFunctions["registerBS"](message, address)
+			dictUDPFunctions["registerBS"](message, addrstruct)
 
 	# CLOSE CONNECTIONS
 	UDPServerSocket.close()
@@ -94,25 +94,30 @@ def TCPConnect():
 	TCPServerSocket.bind((localIP, localPort))
 
 	TCPServerSocket.listen(21)
+
+	connection, addr = TCPServerSocket.accept()
+
+	print(">> Client: ", addr)
     
 	# ------------------- FUNCTIONS TO COMMUNICATE -------------------
-	def TCPSend(message, connection):
+	def TCPSend(message, connection): #PUT \n in the end pls
 		bytesToSend = str.encode(message)
 		nleft = len(bytesToSend)
 		while (nleft):
 			nleft -= connection.send(bytesToSend)
+		print(">> Sent: ", message)
 
 	def TCPRead(connection):
-		msgFromClient = ""
-		while (not len(msgFromClient) or (len(msgFromClient) and msgFromClient[-1] != '\n')):
-			msgFromClient += bytes.decode(connection.recv(bufferSize))
-		print("recebi" + msgFromClient)
-		return msgFromClient[:-1] #erase \n from string
+		message = ""
+		while (not len(message) or (len(message) and message[-1] != '\n')):
+			message += bytes.decode(connection.recv(bufferSize))
+		print(">> Recieved: ", message)
+		return message[:-1].split() #erase \n from string
 
-	def TCPClose(server, clients):
+	def TCPClose(socket, clients):
 		clients.close()
-		server.close()
-		print("tcp closed")
+		socket.close()
+		print(">> TCP closed")
 	
 	def TCPSIGINT(_, __):
 		TCPClose(TCPServerSocket, connection)
@@ -142,18 +147,12 @@ def TCPConnect():
 		"authenticateUser": authenticateUser
 		}
 
-	connection, addr = TCPServerSocket.accept()
-
-	print("Client: ", addr)
-
 	# READ MESSAGES
-
 	while 1:
-		msgFromClient = TCPRead(connection).split()
+		msgFromClient = TCPRead(connection)
 
 		command = msgFromClient[0]
 
-		#print(command)
 		if command == "AUT":
 			dictTCPFunctions["authenticateUser"](msgFromClient)
 	
