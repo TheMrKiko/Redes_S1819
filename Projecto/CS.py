@@ -25,9 +25,12 @@ users = [] #case with no users
 
 # Create a datagram socket
 
+
+
 def UDPConnect():
 
 	UDPServerSocket = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
+
 
 # Bind to address and ip
 
@@ -35,8 +38,7 @@ def UDPConnect():
 
 	print("UDP server up and listening")
 
-	while 1:
-
+	def registerBS():
 		bytesAddressPair = UDPServerSocket.recvfrom(bufferSize)
 		message = bytes.decode(bytesAddressPair[0]).split(" ") #string received
 		bsAddr = bytesAddressPair[1]
@@ -51,6 +53,13 @@ def UDPConnect():
 			UDPServerSocket.sendto(bytesToSend, bsAddr)
 			print("+BS " + bsaddr + " " + BSport)
 
+
+	dictUDPFunctions = {"registerBS":registerBS}
+
+	while 1:
+
+		dictUDPFunctions["registerBS"]()
+
 	UDPServerSocket.close()
    #clientMsg = "Message from Client:{}".format(message)
     	#lientIP  = "Client IP Address:{}".format(address)
@@ -61,6 +70,7 @@ def UDPConnect():
 
 
    		# Sending a reply to client
+
 
 
 def TCPConnect():
@@ -74,16 +84,11 @@ def TCPConnect():
 	connection , addr = TCPServerSocket.accept()
 
 	print("Client: ", addr)
+    
 
-	msgFromClient = " "
-	while (msgFromClient[-1] != '\n'):
-		msgFromClient += bytes.decode(connection.recv(bufferSize))
-	msgFromClient = msgFromClient[1:-1] #erase space and \n from string
-	#print("recebi" + msgFromClient)
-	msgFromClient = msgFromClient.split(" ")
-	command = msgFromClient[0]
-	#print(command)
-	if command == "AUT":
+
+
+	def authenticationUser(msgFromClient):
 		#print("entrei")
 		msgUser = msgFromClient[1]
 		msgPw = msgFromClient[2]
@@ -107,6 +112,17 @@ def TCPConnect():
 				nleft = len(bytesToSend)
 				while (nleft):
 					nleft -= connection.send(bytesToSend)
+	dictTCPFunctions = {"authenticationUser":authenticationUser}
+	msgFromClient = " "
+	while (msgFromClient[-1] != '\n'):
+		msgFromClient += bytes.decode(connection.recv(bufferSize))
+	msgFromClient = msgFromClient[1:-1] #erase space and \n from string
+	#print("recebi" + msgFromClient)
+	msgFromClient = msgFromClient.split(" ")
+	command = msgFromClient[0]
+	#print(command)
+	if command == "AUT":
+		dictTCPFunctions["authenticationUser"](msgFromClient)
 	connection.close()
 	TCPServerSocket.close()
 	#print("tcp closed")
