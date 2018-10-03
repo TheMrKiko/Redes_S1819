@@ -3,6 +3,7 @@ import sys
 
 # ------------------------ VARS, CONSTANTS AND ARGS ------------------------
 CSName = sys.argv[2]
+close = False
 
 if len(sys.argv) < 5:
 	CSPort = 58013
@@ -46,11 +47,12 @@ def login(user, pw):
 dictFunctions = {
 	"login": login
 	}
-
-while 1:
+	
+while not close:
 	request = input().split()
 	command = request[0]
 	if command == "login":
 		dictFunctions["login"](request[1], request[2])
 	elif command == "exit":
+		close = True
 		TCPClose(TCPClientSocket)
