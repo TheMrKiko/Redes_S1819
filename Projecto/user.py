@@ -1,5 +1,7 @@
 import socket
 import sys
+import os
+import time
 
 # ------------------------ VARS, CONSTANTS AND ARGS ------------------------
 CSName = sys.argv[2]
@@ -12,6 +14,7 @@ else:
 
 CSAddrStruct  = (socket.gethostbyname(CSName), CSPort)
 bufferSize = 1024
+userCredentials = []
 
 TCPClientSocket = socket.socket(family = socket.AF_INET, type = socket.SOCK_STREAM)
 TCPClientSocket.connect(CSAddrStruct)
@@ -38,21 +41,49 @@ def TCPClose(socket):
 	print(">> TCP closed")
 
 # ------------------- FUNCTIONS TO MANAGE COMMANDS -------------------
-def login(user, pw):
-	message = "AUT" + " " + user + " " + pw + "\n"
+def loginUser(credentials):
+	message = "AUT" + " " + credentials[0] + " " + credentials[1] + "\n"
 	TCPWrite(message, TCPClientSocket)
-	msg = TCPRead(TCPClientSocket)
-	
+	return TCPRead(TCPClientSocket)
+
+def login(user, pw):
+	msg = loginUser([user, pw])
+	if (msg[1] == "OK" or msg[1] == "NEW"):
+		global userCredentials
+		userCredentials = [user, pw]
+
+def backup(folder):
+	loginreply = loginUser(userCredentials)
+	if loginreply[1] == "OK":
+		dir = "./" + folder
+		files = [name for name in os.listdir(dir)]
+		fileInfos = []
+		for f in files:
+			fileInfos.append([f, time.strftime("%d.%m.%Y %H:%M:%S", time.gmtime(os.path.getmtime(dir + '/' + f))), os.path.getsize(dir + '/' + f)])
+		numberOfFiles = len(files)
+		msg = "BKR " + folder + " " + str(numberOfFiles)
+		for info in fileInfos:
+			for data in info:
+				msg += " " + str(data)
+		TCPWrite(msg + "\n", TCPClientSocket)
+			
+
+
 # --------------------------- MAIN ---------------------------
 dictFunctions = {
-	"login": login
+	"login": login,
+	"backup": backup
 	}
 	
+login("123", "abc")
+backup("RC")
 while not close:
 	request = input().split()
 	command = request[0]
 	if command == "login":
 		dictFunctions["login"](request[1], request[2])
+	elif command == "backup":
+		dictFunctions["backup"](request[1])
 	elif command == "exit":
 		close = True
 		TCPClose(TCPClientSocket)
