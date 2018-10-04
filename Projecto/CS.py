@@ -85,68 +85,75 @@ def TCPConnect():
 
 	TCPServerSocket.listen(21)
 
-	connection, addr = TCPServerSocket.accept()
-
-	print(">> Client: ", addr)
-    
-	# ------------------- FUNCTIONS TO COMMUNICATE -------------------
-	def TCPWrite(message, connection): #PUT \n in the end pls
-		bytesToSend = str.encode(message)
-		nleft = len(bytesToSend)
-		while (nleft):
-			nleft -= connection.send(bytesToSend)
-		print(">> Sent: ", message)
-
-	def TCPRead(connection):
-		message = ""
-		while (not len(message) or (len(message) and message[-1] != '\n')):
-			message += bytes.decode(connection.recv(bufferSize))
-		print(">> Recieved: ", message)
-		return message[:-1].split() #erase \n from string
-
-	def TCPClose(socket, clients):
-		clients.close()
-		socket.close()
-		print(">> TCP closed")
-	
-	def TCPSIGINT(_, __):
-		TCPClose(TCPServerSocket, connection)
-		sys.exit()
-
-	signal.signal(signal.SIGINT, TCPSIGINT)
-
-	# ------------------- FUNCTIONS TO MANAGE COMMANDS -------------------
-	def authenticateUser(msgFromClient):
-
-		msgUser = msgFromClient[1]
-		msgPw = msgFromClient[2]
-		if (msgUser, msgPw) in users: #successful login
-			TCPWrite("AUR OK\n", connection)
-		else:
-			found = False
-			for i in range(len(users)): #checks if pw is ok
-				if msgUser == users[i][0] and msgPw != users[i][1]:
-					found = True
-					TCPWrite("AUR NOK\n", connection)
-			if not found: #new user
-				TCPWrite("AUR NEW\n", connection)
-	
-	# --------------------------- MAIN ---------------------------
-	dictTCPFunctions = {
-		"authenticateUser": authenticateUser
-		}
-
-	# READ MESSAGES
 	while 1:
-		msgFromClient = TCPRead(connection)
+		connection, addr = TCPServerSocket.accept()
 
-		command = msgFromClient[0]
+		pid = os.fork()
+		if pid == -1:
+			print("erro no fork")
+		elif pid:
+				continue
 
-		if command == "AUT":
-			dictTCPFunctions["authenticateUser"](msgFromClient)
+		print(">> Client: ", addr)
 	
-	# CLOSE CONNECTIONS
-	TCPClose(TCPServerSocket, connection)
+		# ------------------- FUNCTIONS TO COMMUNICATE -------------------
+		def TCPWrite(message, connection): #PUT \n in the end pls
+			bytesToSend = str.encode(message)
+			nleft = len(bytesToSend)
+			while (nleft):
+				nleft -= connection.send(bytesToSend)
+			print(">> Sent: ", message)
+
+		def TCPRead(connection):
+			message = ""
+			while (not len(message) or (len(message) and message[-1] != '\n')):
+				message += bytes.decode(connection.recv(bufferSize))
+			print(">> Recieved: ", message)
+			return message[:-1].split() #erase \n from string
+
+		def TCPClose(socket, clients):
+			clients.close()
+			socket.close()
+			print(">> TCP closed")
+
+		def TCPSIGINT(_, __):
+			TCPClose(TCPServerSocket, connection)
+			sys.exit()
+
+		signal.signal(signal.SIGINT, TCPSIGINT)
+
+		# ------------------- FUNCTIONS TO MANAGE COMMANDS -------------------
+		def authenticateUser(msgFromClient):
+
+			msgUser = msgFromClient[1]
+			msgPw = msgFromClient[2]
+			if (msgUser, msgPw) in users: #successful login
+				TCPWrite("AUR OK\n", connection)
+			else:
+				found = False
+				for i in range(len(users)): #checks if pw is ok
+					if msgUser == users[i][0] and msgPw != users[i][1]:
+						found = True
+						TCPWrite("AUR NOK\n", connection)
+				if not found: #new user
+					TCPWrite("AUR NEW\n", connection)
+
+		# --------------------------- MAIN ---------------------------
+		dictTCPFunctions = {
+			"authenticateUser": authenticateUser
+			}
+
+		# READ MESSAGES
+		while 1:
+			msgFromClient = TCPRead(connection)
+
+			command = msgFromClient[0]
+
+			if command == "AUT":
+				dictTCPFunctions["authenticateUser"](msgFromClient)
+
+		# CLOSE CONNECTIONS
+		TCPClose(TCPServerSocket, connection)
 
 
 # ------------------------ SEPERATION OF PROCESSES ------------------------
