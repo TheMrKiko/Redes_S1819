@@ -40,18 +40,31 @@ if len(sys.argv) < 3:
 else:
 	localPort = int(sys.argv[2])
 
-def getDataStruct():
+def getDataStructRO():
 	fp = open('csdata.txt', 'r')
 	ds = json.load(fp)
 	fp.close()
 	print(">> Loaded: ", ds)
 	return ds
 
-def saveDataStruct(data):
+def getDataStructWL():
+	fp = open('csdata.txt', 'r')
+	ds = json.load(fp)
+	fp.close()
+	fp = open('csdata.txt', 'w')
+	print(">> Loaded and left open: ", ds)
+	return ds, fp
+
+def saveDataStruct(data, fp):
 	fp = open('csdata.txt', 'w')
 	json.dump(data, fp)
 	fp.close()
 	print(">> Saved: ", data)
+
+#def saveDataStruct(data, fp):
+#	json.dump(data, fp)
+#	fp.close()
+#	print(">> Saved and closed: ", data)
 	
 
 # -------------------------------- PROCESS FOR UDP --------------------------------
@@ -90,7 +103,7 @@ def UDPConnect():
 	def registerBS(message, addressstruct):
 		BSaddr = message[1]
 		BSport = message[2]
-		data = getDataStruct()
+		data = getDataStructRO()
 		data["backupServers"].append([BSaddr, BSport])
 		saveDataStruct(data)
 		UDPSend("RGR OK", UDPServerSocket, addressstruct)
