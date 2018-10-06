@@ -76,7 +76,7 @@ dictFunctions = {
 	}
 	
 login("123", "abc")
-backup("RC")
+#backup("RC")
 while not close:
 	request = input().split()
 	command = request[0]

@@ -3,6 +3,8 @@ import sys
 import os
 import signal
 import json
+from pathlib import Path
+
 
 # ------------------------ VARS, CONSTANTS AND ARGS ------------------------
 localIP = "localhost"#socket.gethostbyname(socket.gethostname())
@@ -12,60 +14,31 @@ bufferSize  = 1024
 #users = [["123", "xxx"] , ["234", "abc"]] #wrong login
 #users = [["123" , "abc"]] #right login
 
-storedData = {
-	"users": [], #store user (nick, pw)
-				# user = {	"pass": "123",
-				# 			"dirs": {
-				# 				"RC": 
-				# 					{
-				# 					"oi.txt": [],
-				# 					"a.txt": []
-				# 					},
-				#				"PROJ": {}				
-				# 			}
-				# 		}
-	"backupServers": [], #store BS (ip, port)
-	"filesOfuser":  [] #store  [user, [listofdirs]]
-							#dir = {filename: [fileinfos]}
-}
+backupServers = [] #store BS (ip, port) 
 currentUser = ""
 
-fp = open('csdata.txt', 'w')
-json.dump(storedData, fp)
+fp = open('backup.txt', 'w')
+json.dump(backupServers, fp)
 fp.close()
-
 
 if len(sys.argv) < 3:
 	localPort = 58013
 else:
 	localPort = int(sys.argv[2])
 
-def getDataStructRO():
-	fp = open('csdata.txt', 'r')
+def getDataStruct(filename):
+	fp = open(filename, 'r')
 	ds = json.load(fp)
 	fp.close()
 	print(">> Loaded: ", ds)
 	return ds
 
-def getDataStructWL():
-	fp = open('csdata.txt', 'r')
-	ds = json.load(fp)
-	fp.close()
-	fp = open('csdata.txt', 'w')
-	print(">> Loaded and left open: ", ds)
-	return ds, fp
-
-def saveDataStruct(data, fp):
-	fp = open('csdata.txt', 'w')
+def saveDataStruct(data, filename):
+	os.makedirs(os.path.dirname(filename), exist_ok=True)
+	fp = open(filename, 'w')
 	json.dump(data, fp)
 	fp.close()
 	print(">> Saved: ", data)
-
-#def saveDataStruct(data, fp):
-#	json.dump(data, fp)
-#	fp.close()
-#	print(">> Saved and closed: ", data)
-	
 
 # -------------------------------- PROCESS FOR UDP --------------------------------
 def UDPConnect():
@@ -103,8 +76,8 @@ def UDPConnect():
 	def registerBS(message, addressstruct):
 		BSaddr = message[1]
 		BSport = message[2]
-		data = getDataStructRO()
-		data["backupServers"].append([BSaddr, BSport])
+		data = getDataStruct("bs.txt")
+		backupServers.append([BSaddr, BSport])
 		saveDataStruct(data)
 		UDPSend("RGR OK", UDPServerSocket, addressstruct)
 		print("+BS " + BSaddr + " " + BSport)
@@ -179,32 +152,37 @@ def TCPConnect():
 
 			msgUser = msgFromClient[1]
 			msgPw = msgFromClient[2]
-			data = getDataStruct()
+		
 			global currentUser
-			if [msgUser, msgPw] in data["users"]: #successful login
-				TCPWrite("AUR OK\n", connection)
-				currentUser = msgUser
+			path = './users/user_'+ msgUser + '.txt'
+
+			if Path(path).is_file(): #os.path.isfile(fname) 
+				if getDataStruct(path) == msgPw:
+					TCPWrite("AUR OK\n", connection)
+					currentUser = msgUser
+				else:
+					TCPWrite("AUR NOK\n", connection)
 			else:
-				found = False
-				for i in range(len(data["users"])): #checks if pw is ok
-					if msgUser == data["users"][i][0] and msgPw != data["users"][i][1]:
-						found = True
-						TCPWrite("AUR NOK\n", connection)
-				if not found: #new user
-					TCPWrite("AUR NEW\n", connection)
-					data["users"].append([msgUser, msgPw])
-					saveDataStruct(data)
+				TCPWrite("AUR NEW\n", connection)
+				saveDataStruct(msgPw,path)
+
 		
 		def backupDir(msgFromClient):
 
-			dir = "./" + msgFromClient[1]
+			dir = "./" + "user_" + currentUser + "/" + msgFromClient[1]
 			numberOfFiles = int(msgFromClient[2])
 			infoFiles = []
+
+			if Path(dir).is_dir():
+				#saber qual e o BS
+				#saber quais os ficheiros a dar upda
+
 			for i in range(numberOfFiles):
 				j = 3 + i*4
 				infoFiles.append([msgFromClient[j], msgFromClient[j + 1], msgFromClient[j + 2], msgFromClient[j + 3]])
-			if (infoFiles)
-			print(infoFiles)	
+			#if (infoFiles)
+			print(infoFiles)
+
 			#MANDA CREDENTIALS DO USER E VERIFICA QUE FILES TÊM DE SER UPDATED 
 			#VÊ EM Q BS O USER TEM DE MANDAR OS FICHEIROS E MANDA O ENDEREÇO DO BS AO USER
 			#USER FECHA TCP COM CS E ABRE NOVA TCP COM BS
