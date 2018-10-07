@@ -61,7 +61,7 @@ def backup(folder):
 		for f in files:
 			fileInfos.append([f, time.strftime("%d.%m.%Y %H:%M:%S", time.gmtime(os.path.getmtime(dir + '/' + f))), os.path.getsize(dir + '/' + f)])
 		numberOfFiles = len(files)
-		msg = "BKR " + folder + " " + str(numberOfFiles)
+		msg = "BCK " + folder + " " + str(numberOfFiles)
 		for info in fileInfos:
 			for data in info:
 				msg += " " + str(data)

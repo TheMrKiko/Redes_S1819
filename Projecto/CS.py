@@ -67,8 +67,8 @@ class UDPConnect:
 		print(">> UDP server up and listening")
 
 	# FUNCTIONS TO COMMUNICATE
-	def UDPReceive(self, socket):
-		bytesAddressPair = socket.recvfrom(bufferSize)
+	def UDPReceive(self):
+		bytesAddressPair = self.UDPServerSocket.recvfrom(bufferSize)
 		message = bytes.decode(bytesAddressPair[0])
 		addrstruct = bytesAddressPair[1]
 		print(">> Recieved: ", message)
@@ -100,13 +100,14 @@ class UDPConnect:
 	def registerBS(self, message, addressstruct):
 		BSaddr = message[1]
 		BSport = message[2]
+		print(addressstruct)		
 		data = getDataFromFile(BACKUPLIST_FILE)
-		data.append([BSaddr, BSport])
+		data.append([BSaddr, BSport,addressstruct[1]])
 		saveDataInFile(data, BACKUPLIST_FILE)
 		self.UDPSend("RGR OK", addressstruct)
 		print("+BS " + BSaddr + " " + BSport)
 
-	def saveToTmpFile(message):
+	def saveToTmpFile(self,message):
 		saveDataInFile(message,TMP_UDP_FILE)
 	# --------------------------- MAIN ---------------------------
 	def run(self):
@@ -119,7 +120,7 @@ class UDPConnect:
 
 		# READ MESSAGES
 		while 1:
-			message, addrstruct = self.UDPReceive(self.UDPServerSocket)
+			message, addrstruct = self.UDPReceive()
 
 			command = message[0]
 			if command == 'REG':
@@ -208,7 +209,7 @@ def backupDir(msgFromClient, TCPConnection, UDPConnection):
 	infoFiles = []
 
 	if checkDirExists(dir):
-
+		print(1)
 		#saber qual e o BS
 		#saber quais os ficheiros a dar upda
 	else:
@@ -218,10 +219,13 @@ def backupDir(msgFromClient, TCPConnection, UDPConnection):
 			pw = getDataFromFile(USERPASS_FILE(currentUser))
 			msg = "LSU " + currentUser + " " + pw
 		
-			UDPConnection.UDPSend(msg)
+			UDPConnection.UDPSend(msg, (chosen[0],int(chosen[2])))
 			msgFromBs = UDPConnection.UDPPseudoReceive()
 			if msgFromBs[1] == "OK":
-				msgUser = "BKR " + chosen[0] + " " + chosen[1] + " " + msgFromClient[2:]
+				msgUser = "BKR " + chosen[0] + " " + chosen[1]
+				for i in range(2, len(msgFromClient)):
+					msgUser += " " +  msgFromClient[i]
+				#msgFromClient[2:]
 				TCPConnection.TCPWrite(msgUser + "\n")
 		else:
 			print("Arranja BS para mandar esta merda")
