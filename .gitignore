@@ -58,3 +58,7 @@ docs/_build/
 target/
 
 Projecto/\.vscode/
+
+Projecto/csdata\.txt
+
+Projecto/csdata/
