@@ -3,13 +3,16 @@ import sys
 import os
 import signal
 import json
+import random
+import time
 
 # ------------------------ VARS, CONSTANTS AND ARGS ------------------------
 localIP = "localhost"#socket.gethostbyname(socket.gethostname())
-bufferSize  = 1024
+bufferSize = 1024
 
 CSDATA_PATH = './csdata'
 BACKUPLIST_FILE = CSDATA_PATH + '/backup.txt'
+TMP_UDP_FILE = CSDATA_PATH + '/UDPtempmessage.txt'
 USERPASS_FILE = lambda user : CSDATA_PATH + '/users/user_'+ user + '.txt'
 USERFOLDERS_PATH = lambda user : CSDATA_PATH + '/user_' + user
 USERFOLDER_PATH = lambda user, folder : USERFOLDERS_PATH(user) + '/' + folder
@@ -20,8 +23,9 @@ USERFOLDER_PATH = lambda user, folder : USERFOLDERS_PATH(user) + '/' + folder
 #users = [["123" , "abc"]] #right login
 
 backupServers = [] #store BS (ip, port) 
-currentUser = ""
+currentUser = None
 
+os.makedirs(os.path.dirname(BACKUPLIST_FILE), exist_ok = True)
 fp = open(BACKUPLIST_FILE, 'w')
 json.dump(backupServers, fp)
 fp.close()
@@ -70,9 +74,9 @@ class UDPConnect:
 		print(">> Recieved: ", message)
 		return (message.split(), addrstruct)
 	
-	def UDPSend(self, message, socket, addrstruct):
+	def UDPSend(self, message, addrstruct):
 		bytesToSend = str.encode(message)
-		socket.sendto(bytesToSend, addrstruct)
+		self.UDPServerSocket.sendto(bytesToSend, addrstruct)
 		print(">> Sent: ", message)
 
 	def UDPClose(self, socket):
@@ -83,6 +87,14 @@ class UDPConnect:
 		self.UDPClose(self.UDPServerSocket)
 		sys.exit()
 
+	def UDPPseudoReceive(self):
+		while not os.path.exists(TMP_UDP_FILE):
+			time.sleep(0.1)
+		
+		msg = getDataFromFile(TMP_UDP_FILE)
+		os.remove(TMP_UDP_FILE)
+		return msg
+
 
 	# ------------------- FUNCTIONS TO MANAGE COMMANDS -------------------
 	def registerBS(self, message, addressstruct):
@@ -91,26 +103,29 @@ class UDPConnect:
 		data = getDataFromFile(BACKUPLIST_FILE)
 		data.append([BSaddr, BSport])
 		saveDataInFile(data, BACKUPLIST_FILE)
-		self.UDPSend("RGR OK", self.UDPServerSocket, addressstruct)
+		self.UDPSend("RGR OK", addressstruct)
 		print("+BS " + BSaddr + " " + BSport)
 
+	def saveToTmpFile(message):
+		saveDataInFile(message,TMP_UDP_FILE)
 	# --------------------------- MAIN ---------------------------
-	def run(self, i):
+	def run(self):
 		dictUDPFunctions = {
-			"registerBS": self.registerBS
+			"registerBS": self.registerBS,
+			"saveToTMPFile": self.saveToTmpFile
 		}
 
 		signal.signal(signal.SIGINT, self.UDPSIGINT)
 
 		# READ MESSAGES
 		while 1:
-			print("oi", i)
 			message, addrstruct = self.UDPReceive(self.UDPServerSocket)
 
 			command = message[0]
 			if command == 'REG':
 				dictUDPFunctions["registerBS"](message, addrstruct)
-
+			if command == 'LUR':
+				dictUDPFunctions["saveToTMPFile"](message)
 		# CLOSE CONNECTIONS
 		self.UDPServerSocket.close()
 
@@ -187,21 +202,37 @@ def authenticateUser(msgFromClient, TCPConnection):
 		saveDataInFile(msgPw, path)
 
 
-def backupDir(msgFromClient, TCPConnection):
+def backupDir(msgFromClient, TCPConnection, UDPConnection):
 	numberOfFiles = int(msgFromClient[2])
 	dir = USERFOLDER_PATH(currentUser, msgFromClient[1])
 	infoFiles = []
 
-	#if checkDirExists(dir):
+	if checkDirExists(dir):
 
 		#saber qual e o BS
 		#saber quais os ficheiros a dar upda
+	else:
+		bsServers = getDataFromFile(BACKUPLIST_FILE)
+		if len(bsServers):  #if exists BS servers
+			chosen = random.choice(bsServers)
+			pw = getDataFromFile(USERPASS_FILE(currentUser))
+			msg = "LSU " + currentUser + " " + pw
+		
+			UDPConnection.UDPSend(msg)
+			msgFromBs = UDPConnection.UDPPseudoReceive()
+			if msgFromBs[1] == "OK":
+				msgUser = "BKR " + chosen[0] + " " + chosen[1] + " " + msgFromClient[2:]
+				TCPConnection.TCPWrite(msgUser + "\n")
+		else:
+			print("Arranja BS para mandar esta merda")
+			return
 
 	for i in range(numberOfFiles):
 		j = 3 + i*4
 		infoFiles.append([msgFromClient[j], msgFromClient[j + 1], msgFromClient[j + 2], msgFromClient[j + 3]])
 	#if (infoFiles)
 	print(infoFiles)
+	
 
 	#MANDA CREDENTIALS DO USER E VERIFICA QUE FILES TÊM DE SER UPDATED 
 	#VÊ EM Q BS O USER TEM DE MANDAR OS FICHEIROS E MANDA O ENDEREÇO DO BS AO USER
@@ -236,10 +267,10 @@ elif not pid:
 		if command == "AUT":
 			dictTCPFunctions["authenticateUser"](msgFromClient, connection)
 		
-		elif command == "BKR":
-			dictTCPFunctions["backupDir"](msgFromClient, connection)
+		elif command == "BCK":
+			dictTCPFunctions["backupDir"](msgFromClient, connection, UDPConnection)
 
 	sys.exit()
 else:
-	UDPConnection.run(1)
+	UDPConnection.run()
 	sys.exit()
