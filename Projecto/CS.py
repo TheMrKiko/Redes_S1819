@@ -7,7 +7,7 @@ import random
 import time
 
 # ------------------------ VARS, CONSTANTS AND ARGS ------------------------
-localIP = "localhost"#socket.gethostbyname(socket.gethostname())
+localIP = 'localhost'#socket.gethostbyname(socket.gethostname())
 bufferSize = 1024
 
 CSDATA_PATH = './csdata'
@@ -62,16 +62,20 @@ class UDPConnect:
 	def __init__(self):
 		self.UDPServerSocket = socket.socket(family = socket.AF_INET, type = socket.SOCK_DGRAM)
 
+	def startServer(self):
+
 		self.UDPServerSocket.bind((localIP, localPort))
 
 		print(">> UDP server up and listening")
+
+		return self
 
 	# FUNCTIONS TO COMMUNICATE
 	def UDPReceive(self):
 		bytesAddressPair = self.UDPServerSocket.recvfrom(bufferSize)
 		message = bytes.decode(bytesAddressPair[0])
 		addrstruct = bytesAddressPair[1]
-		print(">> Recieved: ", message)
+		print(">> Received: ", message)
 		return (message.split(), addrstruct)
 	
 	def UDPSend(self, message, addrstruct):
@@ -87,14 +91,6 @@ class UDPConnect:
 		self.UDPClose(self.UDPServerSocket)
 		sys.exit()
 
-	def UDPPseudoReceive(self):
-		while not os.path.exists(TMP_UDP_FILE):
-			time.sleep(0.1)
-		
-		msg = getDataFromFile(TMP_UDP_FILE)
-		os.remove(TMP_UDP_FILE)
-		return msg
-
 
 	# ------------------- FUNCTIONS TO MANAGE COMMANDS -------------------
 	def registerBS(self, message, addressstruct):
@@ -107,13 +103,12 @@ class UDPConnect:
 		self.UDPSend("RGR OK", addressstruct)
 		print("+BS " + BSaddr + " " + BSport)
 
-	def saveToTmpFile(self,message):
-		saveDataInFile(message,TMP_UDP_FILE)
+		
 	# --------------------------- MAIN ---------------------------
-	def run(self):
+
+	def runServer(self):
 		dictUDPFunctions = {
-			"registerBS": self.registerBS,
-			"saveToTMPFile": self.saveToTmpFile
+			"registerBS": self.registerBS
 		}
 
 		signal.signal(signal.SIGINT, self.UDPSIGINT)
@@ -125,8 +120,6 @@ class UDPConnect:
 			command = message[0]
 			if command == 'REG':
 				dictUDPFunctions["registerBS"](message, addrstruct)
-			if command == 'LUR':
-				dictUDPFunctions["saveToTMPFile"](message)
 		# CLOSE CONNECTIONS
 		self.UDPServerSocket.close()
 
@@ -169,7 +162,7 @@ class TCPConnect:
 		message = ""
 		while (not len(message) or (len(message) and message[-1] != '\n')):
 			message += bytes.decode(self.connection.recv(bufferSize))
-		print(">> Recieved: ", message)
+		print(">> Received: ", message)
 		return message[:-1].split() #erase \n from string
 
 	def TCPClose(self):
@@ -203,11 +196,11 @@ def authenticateUser(msgFromClient, TCPConnection):
 		saveDataInFile(msgPw, path)
 
 
-def backupDir(msgFromClient, TCPConnection, UDPConnection):
+def backupDir(msgFromClient, TCPConnection):
 	numberOfFiles = int(msgFromClient[2])
 	dir = USERFOLDER_PATH(currentUser, msgFromClient[1])
 	infoFiles = []
-
+	UDPConnection = UDPConnect()
 	if checkDirExists(dir):
 		print(1)
 		#saber qual e o BS
@@ -220,15 +213,16 @@ def backupDir(msgFromClient, TCPConnection, UDPConnection):
 			msg = "LSU " + currentUser + " " + pw
 		
 			UDPConnection.UDPSend(msg, (chosen[0],int(chosen[2])))
-			msgFromBs = UDPConnection.UDPPseudoReceive()
+
+			msgFromBs, addrstruct = UDPConnection.UDPReceive()
+
 			if msgFromBs[1] == "OK":
 				msgUser = "BKR " + chosen[0] + " " + chosen[1]
 				for i in range(2, len(msgFromClient)):
 					msgUser += " " +  msgFromClient[i]
-				#msgFromClient[2:]
 				TCPConnection.TCPWrite(msgUser + "\n")
 		else:
-			print("Arranja BS para mandar esta merda")
+			print("Arranja BS")
 			return
 
 	for i in range(numberOfFiles):
@@ -253,7 +247,7 @@ dictTCPFunctions = {
 
 # ------------------------ SEPERATION OF PROCESSES ------------------------
 
-UDPConnection = UDPConnect()
+
 
 pid = os.fork()
 if pid == -1:
@@ -272,9 +266,10 @@ elif not pid:
 			dictTCPFunctions["authenticateUser"](msgFromClient, connection)
 		
 		elif command == "BCK":
-			dictTCPFunctions["backupDir"](msgFromClient, connection, UDPConnection)
+			dictTCPFunctions["backupDir"](msgFromClient, connection)
 
 	sys.exit()
 else:
-	UDPConnection.run()
+	UDPConnection = UDPConnect().startServer()
+	UDPConnection.runServer()
 	sys.exit()

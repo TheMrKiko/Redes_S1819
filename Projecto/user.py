@@ -66,7 +66,17 @@ def backup(folder):
 			for data in info:
 				msg += " " + str(data)
 		TCPWrite(msg + "\n", TCPClientSocket)
-			
+		msgFromCS = TCPRead(TCPClientSocket)
+		TCPClose(TCPClientSocket)
+
+		TCPClientSocket2 = socket.socket(family = socket.AF_INET, type = socket.SOCK_STREAM)
+		BSAddrStruct = (msgFromCS[1],int(msgFromCS[2]))
+		TCPClientSocket2.connect(BSAddrStruct)
+
+		TCPWrite("AUT " + userCredentials[0] + ' ' + userCredentials[1] + "\n",TCPClientSocket2)
+		msgFromBS = TCPRead(TCPClientSocket2)
+		#if msgFromBS[1] == "OK":
+
 
 
 # --------------------------- MAIN ---------------------------

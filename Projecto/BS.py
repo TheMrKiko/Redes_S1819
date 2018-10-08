@@ -5,7 +5,7 @@ import signal
 import json
 
 # ------------------------ VARS, CONSTANTS AND ARGS ------------------------
-BSPort = sys.argv[2]
+BSPort = int(sys.argv[2])
 CSName = sys.argv[4]
 
 if len(sys.argv) < 7:
@@ -14,16 +14,16 @@ else:
 	CSPort = int(sys.argv[6])
 
 CSAddrStruct = (socket.gethostbyname(CSName), CSPort)
+localIP = socket.gethostbyname(socket.gethostname())
 bufferSize  = 1024
 
-BSDATA_PATH = './bsdata_' + BSPort
+BSDATA_PATH = './bsdata_' + str(BSPort)
 BACKUPLIST_FILE = BSDATA_PATH + '/backup.txt'
 TMP_UDP_FILE = BSDATA_PATH + '/UDPtempmessage.txt'
 USERPASS_FILE = lambda user : BSDATA_PATH + '/users/user_'+ user + '.txt'
 USERFOLDERS_PATH = lambda user : BSDATA_PATH + '/user_' + user
 USERFOLDER_PATH = lambda user, folder : USERFOLDERS_PATH(user) + '/' + folder
 
-# -------------------------------- PROCESS FOR UDP --------------------------------
 def checkFileExists(filename):
 	return os.path.isfile(filename)
 
@@ -117,17 +117,98 @@ class UDPConnect:
 # ---------------------------------------------------------------------------------
 
 # -------------------------------- PROCESS FOR TCP --------------------------------
-def TCPConnect():
-	print("TCP TODO")
-	# Sending a reply to client
+class TCPConnect:
+	
+	def startServer(self):
+
+		self.TCPServerSocket = socket.socket(family = socket.AF_INET, type = socket.SOCK_STREAM)
+
+		self.TCPServerSocket.bind((localIP, BSPort))
+
+		self.TCPServerSocket.listen(21)
+
+		while 1:
+			self.connection, self.addr = self.TCPServerSocket.accept()
+
+			pid = os.fork()
+			if pid == -1:
+				print("erro no fork")
+			elif pid:
+					continue
+
+			print(">> Client: ", self.addr)
+
+			return self
+	
+	# ------------------- FUNCTIONS TO COMMUNICATE -------------------
+	def TCPWrite(self, message): #PUT \n in the end pls
+		bytesToSend = str.encode(message)
+		nleft = len(bytesToSend)
+		while (nleft):
+			nleft -= self.connection.send(bytesToSend)
+		print(">> Sent: ", message)
+
+	def TCPRead(self):
+		message = ""
+		while (not len(message) or (len(message) and message[-1] != '\n')):
+			message += bytes.decode(self.connection.recv(bufferSize))
+		print(">> Received: ", message)
+		return message[:-1].split() #erase \n from string
+
+	def TCPClose(self):
+		self.connection.close()
+		self.TCPServerSocket.close()
+		print(">> TCP closed")
+
+	def TCPSIGINT(self, _, __):
+		self.TCPClose()
+		sys.exit()
+
+	signal.signal(signal.SIGINT, TCPSIGINT)
+
+# ------------------- FUNCTIONS TO MANAGE COMMANDS -------------------
+def authenticateUser(msgFromClient, TCPConnection):
+
+	msgUser = msgFromClient[1]
+	msgPw = msgFromClient[2]
+
+	global currentUser
+	path = USERPASS_FILE(msgUser)
+
+	if checkFileExists(path):
+		if getDataFromFile(path) == msgPw:
+			TCPConnection.TCPWrite("AUR OK\n")
+			currentUser = msgUser
+		else:
+			TCPConnection.TCPWrite("AUR NOK\n")
+	
+
+# --------------------------- MAIN ---------------------------
+
+dictTCPFunctions = {
+	"authenticateUser": authenticateUser
+}
+
 
 # ------------------------ SEPERATION OF PROCESSES ------------------------
 pid = os.fork()
 if pid == -1:
 	print("erro no fork")
 elif not pid:
-	#TCPConnect()
+
+	connection = TCPConnect().startServer()
+
+	# READ MESSAGES
+	while 1:
+		msgFromClient = connection.TCPRead()
+
+		command = msgFromClient[0]
+
+		if command == "AUT":
+			dictTCPFunctions["authenticateUser"](msgFromClient, connection)
+		
 	sys.exit()
+
 else:
 	UDPConnect().run()
 	sys.exit()
