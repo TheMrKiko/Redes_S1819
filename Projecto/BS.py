@@ -3,6 +3,7 @@ import sys
 import os
 import signal
 import json
+import time
 
 # ------------------------ VARS, CONSTANTS AND ARGS ------------------------
 BSPort = int(sys.argv[2])
@@ -182,11 +183,19 @@ def authenticateUser(msgFromClient, TCPConnection):
 		else:
 			TCPConnection.TCPWrite("AUR NOK\n")
 	
+def writeBS(msgFromClient, TCPConnection):
+	folder = msgFromClient[1]
+	dir = USERFOLDER_PATH(currentUser, folder)
+	numberOfFiles = int(msgFromClient[2])
+	
+	for i in range(numberOfFiles):
+		j = 3 + 4 * i
 
 # --------------------------- MAIN ---------------------------
 
 dictTCPFunctions = {
-	"authenticateUser": authenticateUser
+	"authenticateUser": authenticateUser,
+	"writeBS": writeBS
 }
 
 
@@ -206,7 +215,8 @@ elif not pid:
 
 		if command == "AUT":
 			dictTCPFunctions["authenticateUser"](msgFromClient, connection)
-		
+		elif command == "UPL":
+			dictTCPFunctions["writeBS"](msgFromClient, connection)
 	sys.exit()
 
 else:

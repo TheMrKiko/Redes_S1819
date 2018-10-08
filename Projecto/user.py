@@ -21,6 +21,11 @@ TCPClientSocket.connect(CSAddrStruct)
 
 print(">> Client connected to CS")
 
+def readBytesFromFile(path):
+	with open(path, "rb") as binary_file:
+		data = binary_file.read()
+	return bytes.decode(data)
+
 # FUNCTIONS TO COMMUNICATE IN TCP
 def TCPWrite(message, connection): #PUT \n in the end pls
 	bytesToSend = str.encode(message)
@@ -66,7 +71,7 @@ def backup(folder):
 			for data in info:
 				msg += " " + str(data)
 		TCPWrite(msg + "\n", TCPClientSocket)
-		msgFromCS = TCPRead(TCPClientSocket)
+		msgFromCS = TCPRead(TCPClientSocket) #BKR
 		TCPClose(TCPClientSocket)
 
 		TCPClientSocket2 = socket.socket(family = socket.AF_INET, type = socket.SOCK_STREAM)
@@ -75,9 +80,14 @@ def backup(folder):
 
 		TCPWrite("AUT " + userCredentials[0] + ' ' + userCredentials[1] + "\n",TCPClientSocket2)
 		msgFromBS = TCPRead(TCPClientSocket2)
-		#if msgFromBS[1] == "OK":
+		if msgFromBS[1] == "OK":
+			numberOfFiles = msgFromCS[3]
+			msg = "UPL " + folder + " " + numberOfFiles 
 
-
+			for i in range(int(numberOfFiles)):
+				j = 4 + i * 4
+				msg += " " + msgFromCS[j] + " " + msgFromCS[j+1] + " " + msgFromCS[j+2] + " " + msgFromCS[j+3] + " " + readBytesFromFile(dir+"/"+msgFromCS[j])
+			print(msg)
 
 # --------------------------- MAIN ---------------------------
 dictFunctions = {
