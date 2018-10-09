@@ -62,7 +62,10 @@ def saveDataInFile(data, filename):
 class UDPConnect:
 
 	def __init__(self):
-		self.UDPServerSocket = socket.socket(family = socket.AF_INET, type = socket.SOCK_DGRAM)
+		try:
+			self.UDPServerSocket = socket.socket(family = socket.AF_INET, type = socket.SOCK_DGRAM)
+		except:
+			print("erro no socket")
 		UDPOpens.append(self)
 
 	def startServer(self):

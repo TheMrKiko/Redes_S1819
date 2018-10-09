@@ -168,6 +168,13 @@ class TCPConnect:
 			message += bytes.decode(self.TCPRead(bufferSize))
 		return message[:-1] #erase end from string
 
+	def TCPReadFile(self, filename, filesize):
+		with open(filename, "wb+") as fp:
+			while(filesize):
+				bytes = self.TCPRead()
+				filesize -= len(bytes)
+				fp.write(bytes)
+
 	def TCPClose(self):
 		self.connection.close()
 		self.TCPServerSocket.close()
@@ -198,9 +205,10 @@ def writeBS(msgFromClient, TCPConnection):
 	folder = msgFromClient[1]
 	dir = USERFOLDER_PATH(currentUser, folder)
 	numberOfFiles = int(msgFromClient[2])
-	
+
 	for i in range(numberOfFiles):
-		j = 3 + 4 * i
+		name =  3 + i * 4
+		#TCPConnection.TCPReadFile(dir+"/"+msgFromClient[], msgFromClient[])
 
 # --------------------------- MAIN ---------------------------
 
@@ -221,12 +229,14 @@ elif not pid:
 
 	# READ MESSAGES
 	while 1:
-		msgFromClient = connection.TCPReadMessage()
+		msgFromClient = connection.TCPReadWord()
 
-		command = msgFromClient[0]
+		command = msgFromClient
 
 		if command == "AUT":
-			dictTCPFunctions["authenticateUser"](msgFromClient, connection)
+			msg = list(msgFromClient).append(connection.TCPReadMessage())
+			print("oi ", msg)
+			dictTCPFunctions["authenticateUser"](msg, connection)
 		elif command == "UPL":
 			dictTCPFunctions["writeBS"](msgFromClient, connection)
 	sys.exit()

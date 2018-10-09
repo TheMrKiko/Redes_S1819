@@ -18,12 +18,6 @@ BUFFERSIZE = 1024
 userCredentials = []
 TCPOpens = []
 
-def readBytesFromFile(path):
-	with open(path, "rb") as binary_file:
-		data = binary_file.read()
-	return bytes.decode(data)
-
-
 # -------------------------------- PROCESS FOR TCP --------------------------------
 class TCPConnect:
 
@@ -119,8 +113,12 @@ def backup(folder, socket):
 
 			for i in range(int(numberOfFiles)):
 				j = 4 + i * 4
-				msg += " " + msgFromCS[j] + " " + msgFromCS[j+1] + " " + msgFromCS[j+2] + " " + msgFromCS[j+3] + " " + readBytesFromFile(dir+"/"+msgFromCS[j])
-			print(msg)
+				msg += " " + msgFromCS[j] + " " + msgFromCS[j+1] + " " + msgFromCS[j+2] + " " + msgFromCS[j+3] + " "
+				socket2.TCPWriteMessage(msg)
+				socket2.TCPWriteFile(dir + "/" + msgFromCS[j])
+				msg = ""
+			
+
 
 # --------------------------- MAIN ---------------------------
 dictFunctions = {
