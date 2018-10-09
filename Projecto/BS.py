@@ -160,7 +160,9 @@ class TCPConnect:
 		return message.split()
 
 	def TCPReadWord(self):
-		return self.TCPReadStepByStep(1, ' ')
+		word = self.TCPReadStepByStep(1, ' ')
+		print(">> Received Word: ", word)
+		return word
 
 	def TCPReadStepByStep(self, bufferSize, end):
 		message = ""
@@ -169,11 +171,13 @@ class TCPConnect:
 		return message[:-1] #erase end from string
 
 	def TCPReadFile(self, filename, filesize):
+		os.makedirs(os.path.dirname(filename), exist_ok = True)
 		with open(filename, "wb") as fp:
 			while(filesize):
-				bytes = self.TCPRead(BUFFERSIZE)
-				filesize -= len(bytes)
+				bytes = self.TCPRead(2)
 				fp.write(bytes)
+				filesize -= len(bytes)
+
 		print('>> Received File: ', filename)
 
 	def TCPClose(self):
@@ -211,7 +215,8 @@ def writeBS(msgFromClient, TCPConnection):
 		name = TCPConnection.TCPReadWord()
 		date = TCPConnection.TCPReadWord()
 		hour = TCPConnection.TCPReadWord()
-		size = TCPConnection.TCPReadWord()
+		size = int(TCPConnection.TCPReadWord())
+		print("ola crl", name, date, hour, size)
 
 		TCPConnection.TCPReadFile(dir+"/"+ name, size)
 
@@ -239,7 +244,7 @@ elif not pid:
 		command = msgFromClient
 
 		if command == "AUT":
-			msg = list(msgFromClient).append(connection.TCPReadMessage())
+			msg = [msgFromClient] + connection.TCPReadMessage()
 			print("oi ", msg)
 			dictTCPFunctions["authenticateUser"](msg, connection)
 		elif command == "UPL":

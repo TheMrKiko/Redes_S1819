@@ -72,7 +72,7 @@ class UDPConnect:
 
 		self.UDPServerSocket.bind((localIP, localPort))
 
-		print(">> UDP server up and listening")
+		print(">> UDP server up and listening at ", (localIP, localPort))
 
 		return self
 
@@ -143,7 +143,7 @@ class TCPConnect:
 	
 	def startServer(self):
 		self.TCPServerSocket.bind((localIP, localPort))
-
+				
 		self.TCPServerSocket.listen(21)
 
 		while 1:

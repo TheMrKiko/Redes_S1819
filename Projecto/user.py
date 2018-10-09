@@ -25,9 +25,9 @@ class TCPConnect:
 		self.TCPClientSocket = socket.socket(family = socket.AF_INET, type = socket.SOCK_STREAM)
 
 	def startClient(self, addrstruct):
-		self.TCPClientSocket.connect(CSAddrStruct)
+		self.TCPClientSocket.connect(addrstruct)
 
-		print(">> Client connected to CS")
+		print(">> Client connected to ", addrstruct)
 
 		return self
 	
@@ -102,7 +102,9 @@ def backup(folder, socket):
 		socket.TCPClose()
 
 		BSAddrStruct = (msgFromCS[1], int(msgFromCS[2]))
+		
 		socket2 = TCPConnect().startClient(BSAddrStruct)
+	
 
 		socket2.TCPWriteMessage("AUT " + userCredentials[0] + ' ' + userCredentials[1] + "\n")
 		msgFromBS = socket2.TCPReadMessage()
