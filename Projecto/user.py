@@ -2,6 +2,7 @@ import socket
 import sys
 import os
 import time
+import signal
 
 # ------------------------ VARS, CONSTANTS AND ARGS ------------------------
 CSName = sys.argv[2]
@@ -13,52 +14,85 @@ else:
 	CSPort = int(sys.argv[4])
 
 CSAddrStruct  = (socket.gethostbyname(CSName), CSPort)
-bufferSize = 1024
+BUFFERSIZE = 1024
 userCredentials = []
-
-TCPClientSocket = socket.socket(family = socket.AF_INET, type = socket.SOCK_STREAM)
-TCPClientSocket.connect(CSAddrStruct)
-
-print(">> Client connected to CS")
+TCPOpens = []
 
 def readBytesFromFile(path):
 	with open(path, "rb") as binary_file:
 		data = binary_file.read()
 	return bytes.decode(data)
 
-# FUNCTIONS TO COMMUNICATE IN TCP
-def TCPWrite(message, connection): #PUT \n in the end pls
-	bytesToSend = str.encode(message)
-	nleft = len(bytesToSend)
-	while (nleft):
-		nleft -= connection.send(bytesToSend)
-	print(">> Sent: ", message)
 
-def TCPRead(connection):
-	message = ""
-	while (not len(message) or (len(message) and message[-1] != '\n')):
-		message += bytes.decode(connection.recv(bufferSize))
-	print(">> Recieved: ", message)
-	return message[:-1].split() #erase \n from string
+# -------------------------------- PROCESS FOR TCP --------------------------------
+class TCPConnect:
 
-def TCPClose(socket):
-	socket.close()
-	print(">> TCP closed")
+	def __init__(self):
+		self.TCPClientSocket = socket.socket(family = socket.AF_INET, type = socket.SOCK_STREAM)
+
+	def startClient(self, addrstruct):
+		self.TCPClientSocket.connect(CSAddrStruct)
+
+		print(">> Client connected to CS")
+
+		return self
+	
+	# ------------------- FUNCTIONS TO COMMUNICATE -------------------
+	def TCPWrite(self, tosend):
+		nleft = len(tosend)
+		while (nleft):
+			nleft -= self.TCPClientSocket.send(tosend)
+
+	def TCPWriteMessage(self, message): #PUT \n in the end pls
+		bytesToSend = str.encode(message)
+		self.TCPWrite(bytesToSend)
+		print(">> Sent: ", message)
+
+	def TCPWriteFile(self, filepath):
+		fp = open(filepath, 'rb') #mode: read bytes
+		data = fp.read(BUFFERSIZE)
+		while (data):
+			self.TCPWrite(data)
+			data = fp.read(BUFFERSIZE)
+		self.TCPWrite("\n") #end of the message
+		fp.close()
+		print(">> Sent File: ", filepath)
+
+	def TCPRead(self, bufferSize):
+		return self.TCPClientSocket.recv(bufferSize)
+
+	def TCPReadMessage(self):
+		message = self.TCPReadStepByStep(BUFFERSIZE, '\n')
+		print(">> Received: ", message)
+		return message.split()
+
+	def TCPReadWord(self):
+		return self.TCPReadStepByStep(1, ' ')
+
+	def TCPReadStepByStep(self, bufferSize, end):
+		message = ""
+		while (not len(message) or (len(message) and message[-1] != end)):
+			message += bytes.decode(self.TCPRead(bufferSize))
+		return message[:-1] #erase end from string
+
+	def TCPClose(self):
+		self.TCPClientSocket.close()
+		print(">> TCP closed")
 
 # ------------------- FUNCTIONS TO MANAGE COMMANDS -------------------
-def loginUser(credentials):
+def loginUser(credentials, socket):
 	message = "AUT" + " " + credentials[0] + " " + credentials[1] + "\n"
-	TCPWrite(message, TCPClientSocket)
-	return TCPRead(TCPClientSocket)
+	socket.TCPWriteMessage(message)
+	return socket.TCPReadMessage()
 
-def login(user, pw):
-	msg = loginUser([user, pw])
+def login(user, pw, socket):
+	msg = loginUser([user, pw], socket)
 	if (msg[1] == "OK" or msg[1] == "NEW"):
 		global userCredentials
 		userCredentials = [user, pw]
 
-def backup(folder):
-	loginreply = loginUser(userCredentials)
+def backup(folder, socket):
+	loginreply = loginUser(userCredentials, socket)
 	if loginreply[1] == "OK":
 		dir = "./" + folder
 		files = [name for name in os.listdir(dir)]
@@ -70,16 +104,15 @@ def backup(folder):
 		for info in fileInfos:
 			for data in info:
 				msg += " " + str(data)
-		TCPWrite(msg + "\n", TCPClientSocket)
-		msgFromCS = TCPRead(TCPClientSocket) #BKR
-		TCPClose(TCPClientSocket)
+		socket.TCPWriteMessage(msg + "\n")
+		msgFromCS = socket.TCPReadMessage() #BKR
+		socket.TCPClose()
 
-		TCPClientSocket2 = socket.socket(family = socket.AF_INET, type = socket.SOCK_STREAM)
-		BSAddrStruct = (msgFromCS[1],int(msgFromCS[2]))
-		TCPClientSocket2.connect(BSAddrStruct)
+		BSAddrStruct = (msgFromCS[1], int(msgFromCS[2]))
+		socket2 = TCPConnect().startClient(BSAddrStruct)
 
-		TCPWrite("AUT " + userCredentials[0] + ' ' + userCredentials[1] + "\n",TCPClientSocket2)
-		msgFromBS = TCPRead(TCPClientSocket2)
+		socket2.TCPWriteMessage("AUT " + userCredentials[0] + ' ' + userCredentials[1] + "\n")
+		msgFromBS = socket2.TCPReadMessage()
 		if msgFromBS[1] == "OK":
 			numberOfFiles = msgFromCS[3]
 			msg = "UPL " + folder + " " + numberOfFiles 
@@ -95,15 +128,18 @@ dictFunctions = {
 	"backup": backup
 	}
 	
-login("123", "abc")
+TCPClientSocket = TCPConnect().startClient(CSAddrStruct)
+
+login("123", "abc", TCPClientSocket)
 #backup("RC")
+
 while not close:
 	request = input().split()
 	command = request[0]
 	if command == "login":
-		dictFunctions["login"](request[1], request[2])
+		dictFunctions["login"](request[1], request[2], TCPClientSocket)
 	elif command == "backup":
-		dictFunctions["backup"](request[1])
+		dictFunctions["backup"](request[1], TCPClientSocket)
 	elif command == "exit":
 		close = True
-		TCPClose(TCPClientSocket)
+		TCPClientSocket.TCPClose()

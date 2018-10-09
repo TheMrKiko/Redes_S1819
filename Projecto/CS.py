@@ -8,7 +8,7 @@ import time
 
 # ------------------------ VARS, CONSTANTS AND ARGS ------------------------
 localIP = 'localhost'#socket.gethostbyname(socket.gethostname())
-bufferSize = 1024
+BUFFERSIZE = 1024
 
 CSDATA_PATH = './csdata'
 BACKUPLIST_FILE = CSDATA_PATH + '/backup.txt'
@@ -24,6 +24,8 @@ USERFOLDER_PATH = lambda user, folder : USERFOLDERS_PATH(user) + '/' + folder
 
 backupServers = [] #store BS (ip, port) 
 currentUser = None
+TCPOpens = []
+UDPOpens = []
 
 os.makedirs(os.path.dirname(BACKUPLIST_FILE), exist_ok = True)
 fp = open(BACKUPLIST_FILE, 'w')
@@ -61,6 +63,7 @@ class UDPConnect:
 
 	def __init__(self):
 		self.UDPServerSocket = socket.socket(family = socket.AF_INET, type = socket.SOCK_DGRAM)
+		UDPOpens.append(self)
 
 	def startServer(self):
 
@@ -72,7 +75,7 @@ class UDPConnect:
 
 	# FUNCTIONS TO COMMUNICATE
 	def UDPReceive(self):
-		bytesAddressPair = self.UDPServerSocket.recvfrom(bufferSize)
+		bytesAddressPair = self.UDPServerSocket.recvfrom(BUFFERSIZE)
 		message = bytes.decode(bytesAddressPair[0])
 		addrstruct = bytesAddressPair[1]
 		print(">> Received: ", message)
@@ -83,14 +86,9 @@ class UDPConnect:
 		self.UDPServerSocket.sendto(bytesToSend, addrstruct)
 		print(">> Sent: ", message)
 
-	def UDPClose(self, socket):
-		socket.close()
+	def UDPClose(self):
+		self.UDPServerSocket.close()
 		print(">> UDP closed")
-	
-	def UDPSIGINT(self, _, __):
-		self.UDPClose(self.UDPServerSocket)
-		sys.exit()
-
 
 	# ------------------- FUNCTIONS TO MANAGE COMMANDS -------------------
 	def registerBS(self, message, addressstruct):
@@ -111,7 +109,6 @@ class UDPConnect:
 			"registerBS": self.registerBS
 		}
 
-		signal.signal(signal.SIGINT, self.UDPSIGINT)
 
 		# READ MESSAGES
 		while 1:
@@ -123,16 +120,25 @@ class UDPConnect:
 		# CLOSE CONNECTIONS
 		self.UDPServerSocket.close()
 
+def UDPSIGINT(_, __):
+	for udp in UDPOpens:
+		udp.UDPClose()
+	sys.exit()
+
 # ---------------------------------------------------------------------------------
 # ---------------------------------------------------------------------------------
 
 # -------------------------------- PROCESS FOR TCP --------------------------------
 class TCPConnect:
+
+	def __init__(self):
+		self.TCPServerSocket = socket.socket(family = socket.AF_INET, type = socket.SOCK_STREAM)
+		self.connection = self.TCPServerSocket
+
+		TCPOpens.append(self)
+
 	
 	def startServer(self):
-
-		self.TCPServerSocket = socket.socket(family = socket.AF_INET, type = socket.SOCK_STREAM)
-
 		self.TCPServerSocket.bind((localIP, localPort))
 
 		self.TCPServerSocket.listen(21)
@@ -151,32 +157,45 @@ class TCPConnect:
 			return self
 	
 	# ------------------- FUNCTIONS TO COMMUNICATE -------------------
-	def TCPWrite(self, message): #PUT \n in the end pls
-		bytesToSend = str.encode(message)
-		nleft = len(bytesToSend)
+	def TCPWrite(self, tosend):
+		nleft = len(tosend)
 		while (nleft):
-			nleft -= self.connection.send(bytesToSend)
+			nleft -= self.connection.send(tosend)
+
+	def TCPWriteMessage(self, message): #PUT \n in the end pls
+		bytesToSend = str.encode(message)
+		self.TCPWrite(bytesToSend)
 		print(">> Sent: ", message)
 
-	def TCPRead(self):
-		message = ""
-		while (not len(message) or (len(message) and message[-1] != '\n')):
-			message += bytes.decode(self.connection.recv(bufferSize))
+	def TCPRead(self, bufferSize):
+		return self.connection.recv(bufferSize)
+
+	def TCPReadMessage(self):
+		message = self.TCPReadStepByStep(BUFFERSIZE, '\n')
 		print(">> Received: ", message)
-		return message[:-1].split() #erase \n from string
+		return message.split()
+
+	def TCPReadWord(self):
+		return self.TCPReadStepByStep(1, ' ')
+
+	def TCPReadStepByStep(self, bufferSize, end):
+		message = ""
+		while (not len(message) or (len(message) and message[-1] != end)):
+			message += bytes.decode(self.TCPRead(bufferSize))
+		return message[:-1] #erase end from string
 
 	def TCPClose(self):
 		self.connection.close()
 		self.TCPServerSocket.close()
 		print(">> TCP closed")
 
-	def TCPSIGINT(self, _, __):
-		self.TCPClose()
-		sys.exit()
-
-	signal.signal(signal.SIGINT, TCPSIGINT)
 
 # ------------------- FUNCTIONS TO MANAGE COMMANDS -------------------
+def TCPSIGINT(_, __):
+	for tcp in TCPOpens:
+		tcp.TCPClose()
+	sys.exit()
+
 def authenticateUser(msgFromClient, TCPConnection):
 
 	msgUser = msgFromClient[1]
@@ -187,12 +206,12 @@ def authenticateUser(msgFromClient, TCPConnection):
 
 	if checkFileExists(path):
 		if getDataFromFile(path) == msgPw:
-			TCPConnection.TCPWrite("AUR OK\n")
+			TCPConnection.TCPWriteMessage("AUR OK\n")
 			currentUser = msgUser
 		else:
-			TCPConnection.TCPWrite("AUR NOK\n")
+			TCPConnection.TCPWriteMessage("AUR NOK\n")
 	else:
-		TCPConnection.TCPWrite("AUR NEW\n")
+		TCPConnection.TCPWriteMessage("AUR NEW\n")
 		saveDataInFile(msgPw, path)
 
 
@@ -212,7 +231,7 @@ def backupDir(msgFromClient, TCPConnection):
 			pw = getDataFromFile(USERPASS_FILE(currentUser))
 			msg = "LSU " + currentUser + " " + pw
 		
-			UDPConnection.UDPSend(msg, (chosen[0],int(chosen[2])))
+			UDPConnection.UDPSend(msg, (chosen[0], int(chosen[2])))
 
 			msgFromBs, addrstruct = UDPConnection.UDPReceive()
 
@@ -220,7 +239,7 @@ def backupDir(msgFromClient, TCPConnection):
 				msgUser = "BKR " + chosen[0] + " " + chosen[1]
 				for i in range(2, len(msgFromClient)):
 					msgUser += " " +  msgFromClient[i]
-				TCPConnection.TCPWrite(msgUser + "\n")
+				TCPConnection.TCPWriteMessage(msgUser + "\n")
 		else:
 			print("Arranja BS")
 			return
@@ -254,11 +273,12 @@ if pid == -1:
 	print("erro no fork")
 elif not pid:
 	
+	signal.signal(signal.SIGINT, TCPSIGINT)
 	connection = TCPConnect().startServer()
 
 	# READ MESSAGES
 	while 1:
-		msgFromClient = connection.TCPRead()
+		msgFromClient = connection.TCPReadMessage()
 
 		command = msgFromClient[0]
 
@@ -270,6 +290,7 @@ elif not pid:
 
 	sys.exit()
 else:
+	signal.signal(signal.SIGINT, UDPSIGINT)
 	UDPConnection = UDPConnect().startServer()
 	UDPConnection.runServer()
 	sys.exit()
