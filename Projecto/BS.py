@@ -85,10 +85,19 @@ class UDPConnect:
 		saveDataInFile(pw,USERPASS_FILE(user))
 		self.UDPSend("LUR OK", addrstruct)
 
+	def listFilesFromUser(self,user,folder,addrstruct):
+		repInfo = getDataFromFile(dir + "/.~repoinfo_" +  folder + '.txt')
+		numberOfFiles = len(repInfo)
+		msgLFD = "LFD " + str(numberOfFiles) 
+		for filename in repInfo:
+			msgLFD = " " + filename + " " + repInfo[filename][0] + " " + repInfo[filename][1] + " " + repInfo[filename][2]
+		self.UDPSend(msgLFD,addrstruct)
+
 	def run(self):
 
 		dictUDPFunctions = {
-			"registerNewUser": self.registerNewUser
+			"registerNewUser": self.registerNewUser,
+			'listFilesFromUser': self.listFilesFromUser
 		}
 
 		# --------------------------- MAIN ---------------------------
@@ -101,6 +110,9 @@ class UDPConnect:
 			command = message[0]
 			if command == 'LSU':
 				dictUDPFunctions["registerNewUser"](message[1], message[2], addrstruct)
+			elif command == 'LSF':
+				dictUDPFunctions["listFilesFromUser"](message[1], message[2], addrstruct)
+			
 			
 		# CLOSE CONNECTIONS
 		self.UDPClientSocket.close()
@@ -174,7 +186,11 @@ class TCPConnect:
 		os.makedirs(os.path.dirname(filename), exist_ok = True)
 		with open(filename, "wb") as fp:
 			while(filesize):
-				bytes = self.TCPRead(2)
+				if filesize > BUFFERSIZE:
+					toRead = BUFFERSIZE
+				else:
+					toRead = filesize
+				bytes = self.TCPRead(toRead)
 				fp.write(bytes)
 				filesize -= len(bytes)
 
@@ -210,6 +226,7 @@ def writeBS(msgFromClient, TCPConnection):
 	folder = TCPConnection.TCPReadWord()
 	dir = USERFOLDER_PATH(currentUser, folder)
 	numberOfFiles = int(TCPConnection.TCPReadWord())
+	data = {}
 
 	for i in range(numberOfFiles):
 		name = TCPConnection.TCPReadWord()
@@ -219,6 +236,13 @@ def writeBS(msgFromClient, TCPConnection):
 		print("ola crl", name, date, hour, size)
 
 		TCPConnection.TCPReadFile(dir+"/"+ name, size)
+
+		data[name] = [date, hour, size]
+
+		TCPConnection.TCPRead(1)
+
+	saveDataInFile(data, dir + "/.~repoinfo_" +  folder + '.txt')
+	TCPConnection.TCPWriteMessage("UPR OK\n")
 
 # --------------------------- MAIN ---------------------------
 

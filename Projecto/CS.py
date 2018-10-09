@@ -5,6 +5,7 @@ import signal
 import json
 import random
 import time
+from datetime import datetime
 
 # ------------------------ VARS, CONSTANTS AND ARGS ------------------------
 localIP = 'localhost'#socket.gethostbyname(socket.gethostname())
@@ -223,8 +224,29 @@ def backupDir(msgFromClient, TCPConnection):
 	dir = USERFOLDER_PATH(currentUser, msgFromClient[1])
 	infoFiles = []
 	UDPConnection = UDPConnect()
-	if checkDirExists(dir):
-		print(1)
+	if checkFileExists(dir):
+		BS = getDataFromFile(USERFOLDER_PATH(currentUser, msgFromClient[1]))
+		UDPConnection.UDPSend("LSF " + currentUser + " " + msgFromClient[1] , (BS[0], int(BS[2])))
+
+		
+		msgLFD = UDPConnection.UDPReceive()
+		dictFilesSaved = {} 
+		for i in range(msgLFD[1]):
+			j = 2 + i * 4
+			dictFilesSaved[msgLFD[j]] = [msgLFD[j+1], msgLFD[j+2], msgLFD[j+3]]
+
+		dictFilesOfUser = {} 
+		for i in range(msgLFD[1]):
+			j = 3 + i * 4
+			dictFilesOfUser[msgFromClient[j]] = [msgFromClient[j+1], msgFromClient[j+2], msgFromClient[j+3]]
+		msgBKR = ""
+		for filesOfUser in dictFilesOfUser:
+			if filesOfUser in dictFilesSaved:
+				#if dictFilesOfUser[filesOfUser][2] != dictFilesSaved[filesOfUser][2]:
+				datetime_object = time.strptime(msgFromClient[j+1] + " " + msgFromClient[j+2], "%d.%m.%Y %H:%M:%S")
+				print(datetime_object)
+			else:
+				msgBKR += " " + filesOfUser + " " + dictFilesOfUser[filesOfUser][0] + " " + dictFilesOfUser[filesOfUser][1] + " " + dictFilesOfUser[filesOfUser][2]
 		#saber qual e o BS
 		#saber quais os ficheiros a dar upda
 	else:
@@ -243,15 +265,12 @@ def backupDir(msgFromClient, TCPConnection):
 				for i in range(2, len(msgFromClient)):
 					msgUser += " " +  msgFromClient[i]
 				TCPConnection.TCPWriteMessage(msgUser + "\n")
+
+				saveDataInFile([chosen[0], int(chosen[1]), int(chosen[2])], USERFOLDER_PATH(currentUser, msgFromClient[1]))
+
 		else:
 			print("Arranja BS")
 			return
-
-	for i in range(numberOfFiles):
-		j = 3 + i*4
-		infoFiles.append([msgFromClient[j], msgFromClient[j + 1], msgFromClient[j + 2], msgFromClient[j + 3]])
-	#if (infoFiles)
-	print(infoFiles)
 	
 
 	#MANDA CREDENTIALS DO USER E VERIFICA QUE FILES TÊM DE SER UPDATED 

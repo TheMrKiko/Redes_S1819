@@ -99,7 +99,7 @@ def backup(folder, socket):
 				msg += " " + str(data)
 		socket.TCPWriteMessage(msg + "\n")
 		msgFromCS = socket.TCPReadMessage() #BKR
-		socket.TCPClose()
+		#socket.TCPClose()
 
 		BSAddrStruct = (msgFromCS[1], int(msgFromCS[2]))
 		
@@ -118,6 +118,14 @@ def backup(folder, socket):
 				socket2.TCPWriteMessage(msg)
 				socket2.TCPWriteFile(dir + "/" + msgFromCS[j])
 				msg = ""
+			socket2.TCPWriteMessage("\n")	
+
+			reply = socket2.TCPReadMessage() #UPR
+			if reply[1] == 'OK':
+				print(">> file backup completed  ", folder)
+			else:
+				print("UPR NOK ;(")
+			socket2.TCPClose()
 			
 
 
