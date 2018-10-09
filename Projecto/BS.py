@@ -169,11 +169,12 @@ class TCPConnect:
 		return message[:-1] #erase end from string
 
 	def TCPReadFile(self, filename, filesize):
-		with open(filename, "wb+") as fp:
+		with open(filename, "wb") as fp:
 			while(filesize):
-				bytes = self.TCPRead()
+				bytes = self.TCPRead(BUFFERSIZE)
 				filesize -= len(bytes)
 				fp.write(bytes)
+		print('>> Received File: ', filename)
 
 	def TCPClose(self):
 		self.connection.close()
@@ -202,13 +203,17 @@ def authenticateUser(msgFromClient, TCPConnection):
 			TCPConnection.TCPWriteMessage("AUR NOK\n")
 	
 def writeBS(msgFromClient, TCPConnection):
-	folder = msgFromClient[1]
+	folder = TCPConnection.TCPReadWord()
 	dir = USERFOLDER_PATH(currentUser, folder)
-	numberOfFiles = int(msgFromClient[2])
+	numberOfFiles = int(TCPConnection.TCPReadWord())
 
 	for i in range(numberOfFiles):
-		name =  3 + i * 4
-		#TCPConnection.TCPReadFile(dir+"/"+msgFromClient[], msgFromClient[])
+		name = TCPConnection.TCPReadWord()
+		date = TCPConnection.TCPReadWord()
+		hour = TCPConnection.TCPReadWord()
+		size = TCPConnection.TCPReadWord()
+
+		TCPConnection.TCPReadFile(dir+"/"+ name, size)
 
 # --------------------------- MAIN ---------------------------
 

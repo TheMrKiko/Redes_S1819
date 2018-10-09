@@ -48,7 +48,6 @@ class TCPConnect:
 		while (data):
 			self.TCPWrite(data)
 			data = fp.read(BUFFERSIZE)
-		self.TCPWrite("\n") #end of the message
 		fp.close()
 		print(">> Sent File: ", filepath)
 
