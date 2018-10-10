@@ -105,12 +105,22 @@ class UDPConnect:
 		self.UDPSend("RGR OK", addressstruct)
 		print("+BS " + BSaddr + " " + BSport)
 
+	def unregisterBS(self, ipBS,portBS,addrstruct):
+		data = getDataFromFile(BACKUPLIST_FILE)
+		print(portBS)
+		for BS in data:
+			print(BS)
+			if BS[0] == ipBS and BS[1] == portBS:
+					data.remove(BS)
+					break
+		self.UDPSend("UAR OK",addrstruct)
 		
 	# --------------------------- MAIN ---------------------------
 
 	def runServer(self):
 		dictUDPFunctions = {
-			"registerBS": self.registerBS
+			"registerBS": self.registerBS,
+			"unregisterBS": self.unregisterBS
 		}
 
 
@@ -121,6 +131,8 @@ class UDPConnect:
 			command = message[0]
 			if command == 'REG':
 				dictUDPFunctions["registerBS"](message, addrstruct)
+			elif command =="UNR":
+				dictUDPFunctions["unregisterBS"](message[1],message[2],addrstruct)
 		# CLOSE CONNECTIONS
 		self.UDPServerSocket.close()
 
@@ -217,6 +229,16 @@ def authenticateUser(msgFromClient, TCPConnection):
 	else:
 		TCPConnection.TCPWriteMessage("AUR NEW\n")
 		saveDataInFile(msgPw, path)
+def deluser(socket):
+	print("deluser")
+
+def deleteDir(folder,socket):
+	dir = USERFOLDER_PATH(currentUser, folder)
+	dataBS = getDataFromFile(dir)
+	os.remove(dir)
+	msgDLB = "DLB " + currentUser + " " + folder
+	UDPConnection = UDPConnect()
+	UDPConnection.UDPSend(msgDLB, (dataBS[0], int(dataBS[2])))
 
 def dirlist(socket):
 	dir = USERFOLDERS_PATH(currentUser)
@@ -261,16 +283,27 @@ def backupDir(msgFromClient, TCPConnection):
 		msgBKR = ""
 		numberOffilesToSend = 0
 		
+		print(dictFilesOfUser)
+		print(dictFilesSaved)
 		#datetime_object = time.strptime(msgFromClient[j+1] + " " + msgFromClient[j+2], "%d.%m.%Y %H:%M:%S")
 		#print(datetime_object)
 		
-		for (filesOfUser, modDateUser) , (filesSaved, modDateSaved) in zip(dictFilesOfUser.items(), dictFilesSaved.items()):
-			if filesOfUser == filesSaved and modDateUser > modDateSaved:
+		for filesOfUser in dictFilesOfUser:
+			for filesSaved in dictFilesSaved:
+				if filesOfUser not in dictFilesSaved or filesOfUser == filesSaved and dictFilesSaved[filesOfUser] > dictFilesOfUser[filesSaved]:
+					print("sending ", filesOfUser)
+					msgBKR += " " + filesOfUser + " " + time.strftime("%d.%m.%Y %H:%M:%S", dictFilesOfUser[filesOfUser][0]) + " " + dictFilesOfUser[filesOfUser][1]
+					numberOffilesToSend += 1
+				else:
+					print("not sending ", filesOfUser)
+
+		"""for (filesOfUser, modDateUser) , (filesSaved, modDateSaved) in zip(dictFilesOfUser.items(), dictFilesSaved.items()):
+			if filesOfUser not in dictFilesSaved or filesOfUser == filesSaved and modDateUser > modDateSaved:
 				print("sending ", filesOfUser)
 				msgBKR += " " + filesOfUser + " " + time.strftime("%d.%m.%Y %H:%M:%S", dictFilesOfUser[filesOfUser][0]) + " " + dictFilesOfUser[filesOfUser][1]
 				numberOffilesToSend += 1
 			else:
-				print("not sending ", filesOfUser)
+				print("not sending ", filesOfUser)"""
 		#saber qual e o BS
 		#saber quais os ficheiros a dar upda
 		msgBKRfinal = "BKR " + BS[0] + " " + str(BS[1]) + " " + str(numberOffilesToSend) + msgBKR
@@ -312,7 +345,10 @@ dictTCPFunctions = {
 	"authenticateUser": authenticateUser,
 	"backupDir": backupDir,
 	"dirlist": dirlist,
-	"restore": restore
+	"restore": restore,
+	"deluser": deluser,
+	"deleteDir": deleteDir
+
 
 	}
 
@@ -343,6 +379,10 @@ elif not pid:
 			dictTCPFunctions["dirlist"](connection)
 		elif command == "RST":
 			dictTCPFunctions["restore"](msgFromClient[1], connection)
+		elif command == "DLU":
+			dictTCPFunctions["deluser"](connection)
+		elif command == "DEL":
+			dictTCPFunctions["deleteDir"](msgFromClient[1],connection)
 
 	sys.exit()
 else:

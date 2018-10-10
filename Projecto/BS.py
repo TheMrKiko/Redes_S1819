@@ -112,11 +112,21 @@ class UDPConnect:
 			msgLFD += " " + filename + " " + repInfo[filename][0] + " " + repInfo[filename][1] + " " + str(repInfo[filename][2])
 		self.UDPSend(msgLFD,addrstruct)
 
-	def run(self):
+	def deleteDir(self, user, folder, addrstruct):
+		dir = USERFOLDER_PATH(user, folder)
+		try:
+			os.rmdir(dir)
+			msgDBR = "DBR OK"
+			self.UDPSend(msgDBR,addrstruct)
+		except:
+			msgDBR = "DBR NOK"
+			self.UDPSend(msgDBR,addrstruct)
 
+	def run(self):
 		dictUDPFunctions = {
 			"registerNewUser": self.registerNewUser,
-			'listFilesFromUser': self.listFilesFromUser
+			'listFilesFromUser': self.listFilesFromUser,
+			"deleteDir": self.deleteDir
 		}
 
 		# --------------------------- MAIN ---------------------------
@@ -134,14 +144,23 @@ class UDPConnect:
 				dictUDPFunctions["registerNewUser"](message[1], message[2], addrstruct)
 			elif command == 'LSF':
 				dictUDPFunctions["listFilesFromUser"](message[1], message[2], addrstruct)
-			
+			elif command == "DLB":
+				dictUDPFunctions["deleteDir"](message[1], message[2], addrstruct)
 			
 		# CLOSE CONNECTIONS
 		self.UDPClientSocket.close()
 
 def UDPSIGINT(_, __):
+	print("vou fechar")
 	for udp in UDPPOpens:
-		udp.UDPClose()
+		msgUNR = "UNR " + localIP + " " + str(BSPort)
+		udp.UDPSend(msgUNR, CSAddrStruct)
+		msg, addrstruct = udp.UDPReceive()
+		
+		if msg[1] == "OK":
+			udp.UDPClose()
+		else:
+			print("UAR ERR")	
 	sys.exit()
 
 # ---------------------------------------------------------------------------------
@@ -252,7 +271,10 @@ def authenticateUser(msgFromClient, TCPConnection):
 			currentUser = msgUser
 		else:
 			TCPConnection.TCPWriteMessage("AUR NOK\n")
+		
 	
+
+
 def writeBS(msgFromClient, TCPConnection):
 	folder = TCPConnection.TCPReadWord()
 	dir = USERFOLDER_PATH(currentUser, folder)
@@ -275,11 +297,11 @@ def restore(folder,socket):
 	i = 0
 	for info in fileInfos:
 		for data in info:
-			msg += " " + str(data)
-		socket.TCPWriteMessage(msg)
+			msgRBR += " " + str(data)
+		socket.TCPWriteMessage(msgRBR)
 		socket.TCPWriteFile(dir + "/" + fileNames[i])
 		i += 1
-		msg = ""
+		msgRBR = ""
 	socket.TCPWriteMessage("\n")
 
 
@@ -288,7 +310,8 @@ def restore(folder,socket):
 dictTCPFunctions = {
 	"authenticateUser": authenticateUser,
 	"writeBS": writeBS,
-	"restore": restore
+	"restore": restore,
+	
 
 }
 
@@ -316,9 +339,11 @@ elif not pid:
 			dictTCPFunctions["writeBS"](msgFromClient, connection)
 		elif command == "RSB":
 			dictTCPFunctions["restore"](msgFromClient[1], connection)
+		
 	sys.exit()
 
 else:
 	signal.signal(signal.SIGINT, UDPSIGINT)
 	UDPConnect().run()
+
 	sys.exit()

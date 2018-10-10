@@ -107,15 +107,24 @@ class TCPConnect:
 
 # ------------------- FUNCTIONS TO MANAGE COMMANDS -------------------
 def loginUser(credentials, socket):
-	message = "AUT" + " " + credentials[0] + " " + credentials[1] + "\n"
-	socket.TCPWriteMessage(message)
-	return socket.TCPReadMessage()
-
+		message = "AUT" + " " + credentials[0] + " " + credentials[1] + "\n"
+		socket.TCPWriteMessage(message)
+		return socket.TCPReadMessage()
+	
 def login(user, pw, socket):
-	msg = loginUser([user, pw], socket)
-	if (msg[1] == "OK" or msg[1] == "NEW"):
-		global userCredentials
-		userCredentials = [user, pw]
+	global userCredentials
+	if userCredentials == []:
+		msg = loginUser([user, pw], socket)
+		if (msg[1] == "OK" or msg[1] == "NEW"):
+			userCredentials = [user, pw]
+	else:
+		print("logout first")
+
+def logout():
+	global userCredentials
+	userCredentials = []
+def deluser(socket):
+	socket.TCPWriteMessage("DLU\n")
 
 def dirlist(socket):
 	loginreply = loginUser(userCredentials, socket)
@@ -125,6 +134,12 @@ def dirlist(socket):
 		numberOfDirs = int(msgFromCS[1])
 		for i in range(numberOfDirs):
 			print(msgFromCS[2+i])
+
+def deleteDir(folder,socket):
+	socket.TCPWriteMessage("DEL " + folder + '\n')
+	msgDDR = socket.TCPReadMessage()
+	if msgDDR[1] == "OK":
+		print(folder + " deleted")
 
 def backup(folder, socket):
 	loginreply = loginUser(userCredentials, socket)
@@ -174,9 +189,9 @@ def restore(folder,socket):
 	if loginreply[1] == "OK":
 		socket.TCPWriteMessage("RST " + folder + "\n")
 		msgRSR = socket.TCPReadMessage()
-		
+		print(msgRSR)
 		BSAddrStruct = (msgRSR[1], int(msgRSR[2]))
-		
+		print(BSAddrStruct)
 		socket2 = TCPConnect().startClient(BSAddrStruct)
 		socket2.TCPWriteMessage("AUT " + userCredentials[0] + ' ' + userCredentials[1] + "\n")
 		msgFromBS = socket2.TCPReadMessage()
@@ -185,6 +200,8 @@ def restore(folder,socket):
 			msgRBR = socket2.TCPReadWord()
 			numberOfFiles = int(socket2.TCPReadWord())
 			receiveFileAndWrite("./" + folder, numberOfFiles, socket2)
+		else:
+			print("RSB NOK")
 		socket2.TCPClose()
 
 
@@ -193,7 +210,11 @@ dictFunctions = {
 	"login": login,
 	"backup": backup,
 	"dirlist": dirlist,
-	"restore": restore
+	"restore": restore,
+	"logout": logout,
+	"deluser": deluser,
+	"deleteDir": deleteDir
+
 	}
 	
 TCPClientSocket = TCPConnect().startClient(CSAddrStruct)
@@ -212,6 +233,12 @@ while not close:
 		dictFunctions["dirlist"](TCPClientSocket)
 	elif command == "restore":
 		dictFunctions["restore"](request[1],TCPClientSocket)
+	elif command =="logout":
+		dictFunctions["logout"]()
+	elif command == "deluser":
+		dictFunctions["deluser"](TCPClientSocket)
+	elif command == "delete":
+		dictFunctions["deleteDir"](request[1],TCPClientSocket)
 	elif command == "exit":
 		close = True
 		TCPClientSocket.TCPClose()
