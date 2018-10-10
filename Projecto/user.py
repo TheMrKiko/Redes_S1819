@@ -18,6 +18,24 @@ BUFFERSIZE = 1024
 userCredentials = []
 TCPOpens = []
 
+def receiveFileAndWrite(dir, numberOfFiles, TCPConnection):
+
+	data = {}
+
+	for i in range(numberOfFiles):
+		name = TCPConnection.TCPReadWord()
+		date = TCPConnection.TCPReadWord()
+		hour = TCPConnection.TCPReadWord()
+		size = int(TCPConnection.TCPReadWord())
+		print(name, date, hour, size)
+
+		TCPConnection.TCPReadFile(dir+"/"+ name, size)
+
+		data[name] = [date, hour, size]
+
+		TCPConnection.TCPRead(1)
+	return data
+
 # -------------------------------- PROCESS FOR TCP --------------------------------
 class TCPConnect:
 
@@ -67,6 +85,21 @@ class TCPConnect:
 		while (not len(message) or (len(message) and message[-1] != end)):
 			message += bytes.decode(self.TCPRead(bufferSize))
 		return message[:-1] #erase end from string
+	
+	def TCPReadFile(self, filename, filesize):
+		os.makedirs(os.path.dirname(filename), exist_ok = True)
+		with open(filename, "wb") as fp:
+			while(filesize):
+				if filesize > BUFFERSIZE:
+					toRead = BUFFERSIZE
+				else:
+					toRead = filesize
+				bytes = self.TCPRead(toRead)
+				fp.write(bytes)
+				filesize -= len(bytes)
+
+		print('>> Received File: ', filename)
+
 
 	def TCPClose(self):
 		self.TCPClientSocket.close()
@@ -84,10 +117,14 @@ def login(user, pw, socket):
 		global userCredentials
 		userCredentials = [user, pw]
 
-def dirlist():
+def dirlist(socket):
 	loginreply = loginUser(userCredentials, socket)
 	if loginreply[1] == "OK":
-		print("dirlist")
+		socket.TCPWriteMessage("LSD\n")
+		msgFromCS = socket.TCPReadMessage()
+		numberOfDirs = int(msgFromCS[1])
+		for i in range(numberOfDirs):
+			print(msgFromCS[2+i])
 
 def backup(folder, socket):
 	loginreply = loginUser(userCredentials, socket)
@@ -132,18 +169,36 @@ def backup(folder, socket):
 				print("UPR NOK ;(")
 			socket2.TCPClose()
 			
+def restore(folder,socket):
+	loginreply = loginUser(userCredentials, socket)
+	if loginreply[1] == "OK":
+		socket.TCPWriteMessage("RST " + folder + "\n")
+		msgRSR = socket.TCPReadMessage()
+		
+		BSAddrStruct = (msgRSR[1], int(msgRSR[2]))
+		
+		socket2 = TCPConnect().startClient(BSAddrStruct)
+		socket2.TCPWriteMessage("AUT " + userCredentials[0] + ' ' + userCredentials[1] + "\n")
+		msgFromBS = socket2.TCPReadMessage()
+		if msgFromBS[1] == "OK":
+			socket2.TCPWriteMessage("RSB " + folder + "\n")
+			msgRBR = socket2.TCPReadWord()
+			numberOfFiles = int(socket2.TCPReadWord())
+			receiveFileAndWrite("./" + folder, numberOfFiles, socket2)
+		socket2.TCPClose()
 
 
 # --------------------------- MAIN ---------------------------
 dictFunctions = {
 	"login": login,
 	"backup": backup,
-	"dirlist": dirlist
+	"dirlist": dirlist,
+	"restore": restore
 	}
 	
 TCPClientSocket = TCPConnect().startClient(CSAddrStruct)
 
-login("123", "abc", TCPClientSocket)
+login("86450", "joanachicabarata", TCPClientSocket)
 #backup("RC")
 
 while not close:
@@ -154,7 +209,9 @@ while not close:
 	elif command == "backup":
 		dictFunctions["backup"](request[1], TCPClientSocket)
 	elif command == "dirlist":
-		dictFunctions["dirlist"]()
+		dictFunctions["dirlist"](TCPClientSocket)
+	elif command == "restore":
+		dictFunctions["restore"](request[1],TCPClientSocket)
 	elif command == "exit":
 		close = True
 		TCPClientSocket.TCPClose()

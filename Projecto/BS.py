@@ -48,6 +48,23 @@ def saveDataInFile(data, filename):
 	fp.close()
 	print(">> Saved: ", data)
 
+def receiveFileAndWrite(dir, numberOfFiles, TCPConnection):
+
+	data = {}
+
+	for i in range(numberOfFiles):
+		name = TCPConnection.TCPReadWord()
+		date = TCPConnection.TCPReadWord()
+		hour = TCPConnection.TCPReadWord()
+		size = int(TCPConnection.TCPReadWord())
+		print("ola crl", name, date, hour, size)
+
+		TCPConnection.TCPReadFile(dir+"/"+ name, size)
+
+		data[name] = [date, hour, size]
+
+		TCPConnection.TCPRead(1)
+	return data
 # -------------------------------- PROCESS FOR UDP --------------------------------
 class UDPConnect:
 
@@ -201,6 +218,15 @@ class TCPConnect:
 
 		print('>> Received File: ', filename)
 
+	def TCPWriteFile(self, filepath):
+		fp = open(filepath, 'rb') #mode: read bytes
+		data = fp.read(BUFFERSIZE)
+		while (data):
+			self.TCPWrite(data)
+			data = fp.read(BUFFERSIZE)
+		fp.close()
+		print(">> Sent File: ", filepath)
+
 	def TCPClose(self):
 		self.connection.close()
 		self.TCPServerSocket.close()
@@ -231,29 +257,39 @@ def writeBS(msgFromClient, TCPConnection):
 	folder = TCPConnection.TCPReadWord()
 	dir = USERFOLDER_PATH(currentUser, folder)
 	numberOfFiles = int(TCPConnection.TCPReadWord())
-	data = {}
-
-	for i in range(numberOfFiles):
-		name = TCPConnection.TCPReadWord()
-		date = TCPConnection.TCPReadWord()
-		hour = TCPConnection.TCPReadWord()
-		size = int(TCPConnection.TCPReadWord())
-		print("ola crl", name, date, hour, size)
-
-		TCPConnection.TCPReadFile(dir+"/"+ name, size)
-
-		data[name] = [date, hour, size]
-
-		TCPConnection.TCPRead(1)
-
+	data = receiveFileAndWrite(dir, numberOfFiles, TCPConnection)
+	
 	saveDataInFile(data, dir + "/.~repoinfo_" +  folder + '.txt')
 	TCPConnection.TCPWriteMessage("UPR OK\n")
+
+def restore(folder,socket):
+	dir = USERFOLDER_PATH(currentUser,folder)
+	files = [name for name in os.listdir(dir)]
+	fileInfos = []
+	fileNames = []
+	for f in files:
+		fileInfos.append([f, time.strftime("%d.%m.%Y %H:%M:%S", time.gmtime(os.path.getmtime(dir + '/' + f))), os.path.getsize(dir + '/' + f)])
+		fileNames.append(f)
+	numberOfFiles = len(files)
+	msgRBR = "RBR " + folder + " " + str(numberOfFiles)
+	i = 0
+	for info in fileInfos:
+		for data in info:
+			msg += " " + str(data)
+		socket.TCPWriteMessage(msg)
+		socket.TCPWriteFile(dir + "/" + fileNames[i])
+		i += 1
+		msg = ""
+	socket.TCPWriteMessage("\n")
+
 
 # --------------------------- MAIN ---------------------------
 
 dictTCPFunctions = {
 	"authenticateUser": authenticateUser,
-	"writeBS": writeBS
+	"writeBS": writeBS,
+	"restore": restore
+
 }
 
 
@@ -278,6 +314,8 @@ elif not pid:
 			dictTCPFunctions["authenticateUser"](msg, connection)
 		elif command == "UPL":
 			dictTCPFunctions["writeBS"](msgFromClient, connection)
+		elif command == "RSB":
+			dictTCPFunctions["restore"](msgFromClient[1], connection)
 	sys.exit()
 
 else:
