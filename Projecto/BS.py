@@ -86,11 +86,13 @@ class UDPConnect:
 		self.UDPSend("LUR OK", addrstruct)
 
 	def listFilesFromUser(self,user,folder,addrstruct):
+		print("cheguei")
+		dir = USERFOLDER_PATH(user, folder)
 		repInfo = getDataFromFile(dir + "/.~repoinfo_" +  folder + '.txt')
 		numberOfFiles = len(repInfo)
 		msgLFD = "LFD " + str(numberOfFiles) 
 		for filename in repInfo:
-			msgLFD = " " + filename + " " + repInfo[filename][0] + " " + repInfo[filename][1] + " " + repInfo[filename][2]
+			msgLFD += " " + filename + " " + repInfo[filename][0] + " " + repInfo[filename][1] + " " + str(repInfo[filename][2])
 		self.UDPSend(msgLFD,addrstruct)
 
 	def run(self):
@@ -102,12 +104,15 @@ class UDPConnect:
 
 		# --------------------------- MAIN ---------------------------
 		self.init()
-
+		i= 0
 		# READ MESSAGES
 		while 1:
+			print("pila ", i)
+			i+=1
 			message, addrstruct = self.UDPReceive()
 
 			command = message[0]
+			print(command)
 			if command == 'LSU':
 				dictUDPFunctions["registerNewUser"](message[1], message[2], addrstruct)
 			elif command == 'LSF':

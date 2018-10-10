@@ -224,31 +224,44 @@ def backupDir(msgFromClient, TCPConnection):
 	dir = USERFOLDER_PATH(currentUser, msgFromClient[1])
 	infoFiles = []
 	UDPConnection = UDPConnect()
+	print("dir ", dir)
 	if checkFileExists(dir):
+		print("LSF")
+		print(USERFOLDER_PATH(currentUser, msgFromClient[1]))
 		BS = getDataFromFile(USERFOLDER_PATH(currentUser, msgFromClient[1]))
+		print(BS)
 		UDPConnection.UDPSend("LSF " + currentUser + " " + msgFromClient[1] , (BS[0], int(BS[2])))
 
 		
-		msgLFD = UDPConnection.UDPReceive()
+		msgLFD = UDPConnection.UDPReceive()[0]
 		dictFilesSaved = {} 
-		for i in range(msgLFD[1]):
+		print("msgLFD[1])", msgLFD[1])
+		for i in range(int(msgLFD[1])):
 			j = 2 + i * 4
-			dictFilesSaved[msgLFD[j]] = [msgLFD[j+1], msgLFD[j+2], msgLFD[j+3]]
+			dictFilesSaved[msgLFD[j]] = [time.strptime(msgLFD[j+1] + " " + msgLFD[j+2], "%d.%m.%Y %H:%M:%S"), msgLFD[j+3]]
 
 		dictFilesOfUser = {} 
-		for i in range(msgLFD[1]):
+		for i in range(numberOfFiles):
 			j = 3 + i * 4
-			dictFilesOfUser[msgFromClient[j]] = [msgFromClient[j+1], msgFromClient[j+2], msgFromClient[j+3]]
+			dictFilesOfUser[msgFromClient[j]] = [time.strptime(msgFromClient[j+1] + " " + msgFromClient[j+2], "%d.%m.%Y %H:%M:%S"), msgFromClient[j+3]]
 		msgBKR = ""
-		for filesOfUser in dictFilesOfUser:
-			if filesOfUser in dictFilesSaved:
-				#if dictFilesOfUser[filesOfUser][2] != dictFilesSaved[filesOfUser][2]:
-				datetime_object = time.strptime(msgFromClient[j+1] + " " + msgFromClient[j+2], "%d.%m.%Y %H:%M:%S")
-				print(datetime_object)
+		numberOffilesToSend = 0
+		
+		#datetime_object = time.strptime(msgFromClient[j+1] + " " + msgFromClient[j+2], "%d.%m.%Y %H:%M:%S")
+		#print(datetime_object)
+		
+		for (filesOfUser, modDateUser) , (filesSaved, modDateSaved) in zip(dictFilesOfUser.items(), dictFilesSaved.items()):
+			if filesOfUser == filesSaved and modDateUser > modDateSaved:
+				print("sending ", filesOfUser)
+				msgBKR += " " + filesOfUser + " " + time.strftime("%d.%m.%Y %H:%M:%S", dictFilesOfUser[filesOfUser][0]) + " " + dictFilesOfUser[filesOfUser][1]
+				numberOffilesToSend += 1
 			else:
-				msgBKR += " " + filesOfUser + " " + dictFilesOfUser[filesOfUser][0] + " " + dictFilesOfUser[filesOfUser][1] + " " + dictFilesOfUser[filesOfUser][2]
+				print("not sending ", filesOfUser)
 		#saber qual e o BS
 		#saber quais os ficheiros a dar upda
+		msgBKRfinal = "BKR " + BS[0] + " " + str(BS[1]) + " " + str(numberOffilesToSend) + msgBKR
+
+		TCPConnection.TCPWriteMessage(msgBKRfinal+"\n")
 	else:
 		bsServers = getDataFromFile(BACKUPLIST_FILE)
 		if len(bsServers):  #if exists BS servers
@@ -267,11 +280,11 @@ def backupDir(msgFromClient, TCPConnection):
 				TCPConnection.TCPWriteMessage(msgUser + "\n")
 
 				saveDataInFile([chosen[0], int(chosen[1]), int(chosen[2])], USERFOLDER_PATH(currentUser, msgFromClient[1]))
-
 		else:
 			print("Arranja BS")
 			return
 	
+	UDPConnection.UDPClose()
 
 	#MANDA CREDENTIALS DO USER E VERIFICA QUE FILES TÊM DE SER UPDATED 
 	#VÊ EM Q BS O USER TEM DE MANDAR OS FICHEIROS E MANDA O ENDEREÇO DO BS AO USER
