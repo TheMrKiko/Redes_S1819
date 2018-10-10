@@ -84,6 +84,11 @@ def login(user, pw, socket):
 		global userCredentials
 		userCredentials = [user, pw]
 
+def dirlist():
+	loginreply = loginUser(userCredentials, socket)
+	if loginreply[1] == "OK":
+		print("dirlist")
+
 def backup(folder, socket):
 	loginreply = loginUser(userCredentials, socket)
 	if loginreply[1] == "OK":
@@ -132,7 +137,8 @@ def backup(folder, socket):
 # --------------------------- MAIN ---------------------------
 dictFunctions = {
 	"login": login,
-	"backup": backup
+	"backup": backup,
+	"dirlist": dirlist
 	}
 	
 TCPClientSocket = TCPConnect().startClient(CSAddrStruct)
@@ -147,6 +153,8 @@ while not close:
 		dictFunctions["login"](request[1], request[2], TCPClientSocket)
 	elif command == "backup":
 		dictFunctions["backup"](request[1], TCPClientSocket)
+	elif command == "dirlist":
+		dictFunctions["dirlist"]()
 	elif command == "exit":
 		close = True
 		TCPClientSocket.TCPClose()
