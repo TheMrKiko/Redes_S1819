@@ -229,8 +229,22 @@ def authenticateUser(msgFromClient, TCPConnection):
 	else:
 		TCPConnection.TCPWriteMessage("AUR NEW\n")
 		saveDataInFile(msgPw, path)
+
 def deluser(socket):
-	print("deluser")
+	dir = USERFOLDERS_PATH(currentUser)
+	if checkDirExists(dir):
+		dirs = [name for name in os.listdir(dir)]
+		if len(dirs) > 0:
+			for name in dirs:
+				deleteDir(name,socket)
+		os.rmdir(dir)
+		os.remove(USERPASS_FILE(currentUser))
+
+		socket.TCPWriteMessage("DLR OK\n")
+	
+	else:
+		socket.TCPWriteMessage("DLR NOK\n")
+
 
 def deleteDir(folder,socket):
 	dir = USERFOLDER_PATH(currentUser, folder)
@@ -239,6 +253,31 @@ def deleteDir(folder,socket):
 	msgDLB = "DLB " + currentUser + " " + folder
 	UDPConnection = UDPConnect()
 	UDPConnection.UDPSend(msgDLB, (dataBS[0], int(dataBS[2])))
+	msgDBR = UDPConnection.UDPReceive()[0]
+	if msgDBR[1] == "OK":
+		socket.TCPWriteMessage("DDR OK\n")
+	else:
+		socket.TCPWriteMessage("DDR NOK\n")
+	UDPConnection.UDPClose()
+
+
+def filelist(folder, socket):
+	dir = USERFOLDER_PATH(currentUser, folder)
+	dataBS = getDataFromFile(dir)
+	print(dir)
+	if checkFileExists(dir):
+		UDPConnection = UDPConnect()
+		UDPConnection.UDPSend("LSF " + currentUser + " " + folder , (dataBS[0], int(dataBS[2])))
+		listLFD = UDPConnection.UDPReceive()[0]
+		msgLFD = ""
+		for data in listLFD:
+			msgLFD += data + " "
+			if data == "LFD":
+				msgLFD += dataBS[0] + " " + str(dataBS[2]) + " "
+		socket.TCPWriteMessage(msgLFD + "\n")
+	else:
+		socket.TCPWriteMessage("LFD NOK" + "\n")
+	
 
 def dirlist(socket):
 	dir = USERFOLDERS_PATH(currentUser)
@@ -349,7 +388,8 @@ dictTCPFunctions = {
 	"dirlist": dirlist,
 	"restore": restore,
 	"deluser": deluser,
-	"deleteDir": deleteDir
+	"deleteDir": deleteDir,
+	"filelist": filelist
 
 
 	}
@@ -385,6 +425,8 @@ elif not pid:
 			dictTCPFunctions["deluser"](connection)
 		elif command == "DEL":
 			dictTCPFunctions["deleteDir"](msgFromClient[1],connection)
+		elif command == "LSF":
+			dictTCPFunctions["filelist"](msgFromClient[1], connection)
 
 	sys.exit()
 else:

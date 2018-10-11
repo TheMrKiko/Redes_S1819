@@ -126,6 +126,11 @@ def logout():
 def deluser(socket):
 	socket.TCPWriteMessage("DLU\n")
 
+	msgDLR = socket.TCPReadMessage()
+	global userCredentials
+	if msgDLR[1] == "OK":
+		print("deleted user " + userCredentials[0])
+
 def dirlist(socket):
 	loginreply = loginUser(userCredentials, socket)
 	if loginreply[1] == "OK":
@@ -137,6 +142,12 @@ def dirlist(socket):
 			numberOfDirs = int(msgFromCS[1])
 			for i in range(numberOfDirs):
 				print(msgFromCS[2+i])
+
+def filelist(folder,socket):
+	loginreply = loginUser(userCredentials, socket)
+	if loginreply[1] == "OK":
+		socket.TCPWriteMessage("LSF " + folder + "\n")
+		msgLFD = socket.TCPReadMessage()
 
 def deleteDir(folder,socket):
 	socket.TCPWriteMessage("DEL " + folder + '\n')
@@ -216,7 +227,8 @@ dictFunctions = {
 	"restore": restore,
 	"logout": logout,
 	"deluser": deluser,
-	"deleteDir": deleteDir
+	"deleteDir": deleteDir,
+	"filelist": filelist
 
 	}
 	
@@ -242,6 +254,8 @@ while not close:
 		dictFunctions["deluser"](TCPClientSocket)
 	elif command == "delete":
 		dictFunctions["deleteDir"](request[1],TCPClientSocket)
+	elif command == "filelist":
+		dictFunctions["filelist"](request[1],TCPClientSocket)
 	elif command == "exit":
 		close = True
 		TCPClientSocket.TCPClose()

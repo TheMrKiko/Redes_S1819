@@ -116,12 +116,19 @@ class UDPConnect:
 	def deleteDir(self, user, folder, addrstruct):
 		dir = USERFOLDER_PATH(user, folder)
 		print(dir)
-		shutil.rmtree(dir)
-		msgDBR = "DBR OK"
-		self.UDPSend(msgDBR,addrstruct)
-		#except:
-		#	msgDBR = "DBR NOK"
-		#	self.UDPSend(msgDBR,addrstruct)
+		if checkDirExists(dir):
+			try:
+				shutil.rmtree(dir)
+				msgDBR = "DBR OK"
+				self.UDPSend(msgDBR,addrstruct)
+			except:
+				msgDBR = "DBR NOK"
+				self.UDPSend(msgDBR,addrstruct)
+		dir = USERFOLDERS_PATH(user)
+		if not os.listdir(dir):
+			os.rmdir(dir)
+			os.remove(USERPASS_FILE(user))
+
 
 	def run(self):
 		dictUDPFunctions = {
@@ -135,7 +142,7 @@ class UDPConnect:
 		i= 0
 		# READ MESSAGES
 		while 1:
-			print("pila ", i)
+			print("iter ", i)
 			i+=1
 			message, addrstruct = self.UDPReceive()
 
