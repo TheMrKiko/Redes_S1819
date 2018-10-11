@@ -14,6 +14,7 @@ else:
 	CSPort = int(sys.argv[4])
 
 CSAddrStruct  = (socket.gethostbyname(CSName), CSPort)
+
 BUFFERSIZE = 1024
 userCredentials = []
 TCPOpens = []
@@ -44,37 +45,58 @@ def receiveFileAndWrite(dir, numberOfFiles, TCPConnection):
 class TCPConnect:
 
 	def __init__(self):
-		self.TCPClientSocket = socket.socket(family = socket.AF_INET, type = socket.SOCK_STREAM)
+		try:
+			self.TCPClientSocket = socket.socket(family = socket.AF_INET, type = socket.SOCK_STREAM)
+		except:
+			print("error creating TCP socket")
 
 	def startClient(self, addrstruct):
-		self.TCPClientSocket.connect(addrstruct)
-
-		print(">> Client connected to ", addrstruct)
-
-		return self
+		try:
+			self.TCPClientSocket.connect(addrstruct)
+			print(">> Client connected to ", addrstruct)
+			return self
+		except:
+			print("error connecting to server ", addrstruct)
+			
 	
 	# ------------------- FUNCTIONS TO COMMUNICATE -------------------
 	def TCPWrite(self, tosend):
 		nleft = len(tosend)
 		while (nleft):
-			nleft -= self.TCPClientSocket.send(tosend)
+			try:
+				nleft -= self.TCPClientSocket.send(tosend)
+			except:
+				print("error sending ", self)
 
 	def TCPWriteMessage(self, message): #PUT \n in the end pls
-		bytesToSend = str.encode(message)
-		self.TCPWrite(bytesToSend)
-		print(">> Sent: ", message)
+		try:
+			bytesToSend = str.encode(message)
+			self.TCPWrite(bytesToSend)
+			print(">> Sent: ", message)
+		except:
+			print("error sending message ", self)
 
 	def TCPWriteFile(self, filepath):
-		fp = open(filepath, 'rb') #mode: read bytes
+		try:
+			fp = open(filepath, 'rb') #mode: read bytes
+		except:
+			print("error opening file ", filepath)
 		data = fp.read(BUFFERSIZE)
 		while (data):
 			self.TCPWrite(data)
 			data = fp.read(BUFFERSIZE)
-		fp.close()
+		try:
+			fp.close()
+		except:
+			print("error closing file ", filepath)
 		print(">> Sent File: ", filepath)
 
 	def TCPRead(self, bufferSize):
-		return self.TCPClientSocket.recv(bufferSize)
+		try:
+			result = self.TCPClientSocket.recv(bufferSize)
+			return result
+		except:
+			print("error receiving TCP")
 
 	def TCPReadMessage(self):
 		message = self.TCPReadStepByStep(BUFFERSIZE, '\n')
@@ -93,7 +115,10 @@ class TCPConnect:
 		return message[:-1] #erase end from string
 	
 	def TCPReadFile(self, filename, filesize):
-		os.makedirs(os.path.dirname(filename), exist_ok = True)
+		try:
+			os.makedirs(os.path.dirname(filename), exist_ok = True)
+		except:
+			print("os error making dirs ", filename)
 		with open(filename, "wb") as fp:
 			while(filesize):
 				if filesize > BUFFERSIZE:
@@ -108,14 +133,20 @@ class TCPConnect:
 
 
 	def TCPClose(self):
-		self.TCPClientSocket.close()
-		print(">> TCP closed")
+		try:
+			self.TCPClientSocket.close()
+			print(">> TCP closed")
+		except:
+			print("error closing TCP socket")
 
 # ------------------- FUNCTIONS TO MANAGE COMMANDS -------------------
 def loginUser(credentials, socket):
 		message = "AUT" + " " + credentials[0] + " " + credentials[1] + "\n"
+		print(message.split())
 		socket.TCPWriteMessage(message)
-		return socket.TCPReadMessage()
+		word = socket.TCPReadMessage()
+		print(word)
+		return word
 	
 def login(user, pw, socket):
 	global userCredentials
