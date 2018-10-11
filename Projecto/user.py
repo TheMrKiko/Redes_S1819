@@ -19,15 +19,19 @@ userCredentials = []
 TCPOpens = []
 
 def receiveFileAndWrite(dir, numberOfFiles, TCPConnection):
-
+	print("dir ", dir)
 	data = {}
 
 	for i in range(numberOfFiles):
 		name = TCPConnection.TCPReadWord()
+		print("name ", name)
 		date = TCPConnection.TCPReadWord()
+		print("date",date)
 		hour = TCPConnection.TCPReadWord()
+		print("hour",hour)
 		size = int(TCPConnection.TCPReadWord())
-		print(name, date, hour, size)
+		print("size", size)
+		print(name, date, hour, int(size))
 
 		TCPConnection.TCPReadFile(dir+"/"+ name, size)
 
@@ -78,7 +82,9 @@ class TCPConnect:
 		return message.split()
 
 	def TCPReadWord(self):
-		return self.TCPReadStepByStep(1, ' ')
+		word = self.TCPReadStepByStep(1, ' ')
+		print(">> Received Word: ", word)
+		return word
 
 	def TCPReadStepByStep(self, bufferSize, end):
 		message = ""
@@ -130,8 +136,8 @@ def deluser(socket):
 	msgDLR = socket.TCPReadMessage()
 	global userCredentials
 	if msgDLR[1] == "OK":
-		userCredentials = []
 		print("deleted user " + userCredentials[0])
+		userCredentials = []
 
 def dirlist(socket):
 	loginreply = loginUser(userCredentials, socket)
@@ -159,6 +165,7 @@ def deleteDir(folder,socket):
 
 def backup(folder, socket):
 	loginreply = loginUser(userCredentials, socket)
+	print(loginreply)
 	if loginreply[1] == "OK":
 		dir = "./" + folder
 		files = [name for name in os.listdir(dir)]
@@ -216,7 +223,9 @@ def restore(folder,socket):
 		if msgFromBS[1] == "OK":
 			socket2.TCPWriteMessage("RSB " + folder + "\n")
 			msgRBR = socket2.TCPReadWord()
-			numberOfFiles = int(socket2.TCPReadWord())
+			num = socket2.TCPReadWord()
+			print(num)
+			numberOfFiles = int(num)
 			receiveFileAndWrite("./" + folder, numberOfFiles, socket2)
 		else:
 			print("RSB NOK")
@@ -238,7 +247,7 @@ dictFunctions = {
 	
 TCPClientSocket = TCPConnect().startClient(CSAddrStruct)
 
-login("86450", "joanachicabarata", TCPClientSocket)
+#login("86450", "joanachicabarata", TCPClientSocket)
 #backup("RC")
 
 while not close:

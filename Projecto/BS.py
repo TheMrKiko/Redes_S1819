@@ -11,7 +11,7 @@ BSPort = int(sys.argv[2])
 CSName = sys.argv[4]
 
 if len(sys.argv) < 7:
-	CSPort = 58013
+    CSPort = 58013
 else:
 	CSPort = int(sys.argv[6])
 
@@ -292,9 +292,8 @@ def writeBS(msgFromClient, TCPConnection):
 	saveDataInFile(data, dir + "/.~repoinfo_" +  folder + '.txt')
 	TCPConnection.TCPWriteMessage("UPR OK\n")
 
-def restore(socket):
-	folder = socket.TCPReadWord()
-	dir = USERFOLDER_PATH(currentUser,folder)
+def restore(msg, socket):
+	dir = USERFOLDER_PATH(currentUser,msg[1])
 	print(dir)
 	files = [name for name in os.listdir(dir)]
 	fileInfos = []
@@ -303,12 +302,18 @@ def restore(socket):
 		fileInfos.append([f, time.strftime("%d.%m.%Y %H:%M:%S", time.gmtime(os.path.getmtime(dir + '/' + f))), os.path.getsize(dir + '/' + f)])
 		fileNames.append(f)
 	numberOfFiles = len(files)
-	msgRBR = "RBR " + folder + " " + str(numberOfFiles)
+	msgRBR = "RBR " + str(numberOfFiles)
 	i = 0
+	repoInfo = ".~repoinfo_" + msg[1] + ".txt"
 	for info in fileInfos:
+		if fileNames[i] == repoInfo: #dont send the repo info
+			continue
 		for data in info:
+			print("data", data)
 			msgRBR += " " + str(data)
-		socket.TCPWriteMessage(msgRBR)
+		print("msgRBR ", msgRBR)
+		socket.TCPWriteMessage(msgRBR + " ")
+		print("fileNames[i]", fileNames[i])
 		socket.TCPWriteFile(dir + "/" + fileNames[i])
 		i += 1
 		msgRBR = ""
@@ -348,7 +353,9 @@ elif not pid:
 		elif command == "UPL":
 			dictTCPFunctions["writeBS"](msgFromClient, connection)
 		elif command == "RSB":
-			dictTCPFunctions["restore"](connection)
+			msg = [msgFromClient] + connection.TCPReadMessage()
+			print("restore ", msg)
+			dictTCPFunctions["restore"](msg, connection)
 		
 	sys.exit()
 
