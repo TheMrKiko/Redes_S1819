@@ -4,6 +4,7 @@ import os
 import signal
 import json
 import time
+import shutil
 
 # ------------------------ VARS, CONSTANTS AND ARGS ------------------------
 BSPort = int(sys.argv[2])
@@ -114,13 +115,13 @@ class UDPConnect:
 
 	def deleteDir(self, user, folder, addrstruct):
 		dir = USERFOLDER_PATH(user, folder)
-		try:
-			os.rmdir(dir)
-			msgDBR = "DBR OK"
-			self.UDPSend(msgDBR,addrstruct)
-		except:
-			msgDBR = "DBR NOK"
-			self.UDPSend(msgDBR,addrstruct)
+		print(dir)
+		shutil.rmtree(dir)
+		msgDBR = "DBR OK"
+		self.UDPSend(msgDBR,addrstruct)
+		#except:
+		#	msgDBR = "DBR NOK"
+		#	self.UDPSend(msgDBR,addrstruct)
 
 	def run(self):
 		dictUDPFunctions = {

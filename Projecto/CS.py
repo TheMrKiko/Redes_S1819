@@ -242,13 +242,15 @@ def deleteDir(folder,socket):
 
 def dirlist(socket):
 	dir = USERFOLDERS_PATH(currentUser)
-	files = [name for name in os.listdir(dir)]
-	numberOfFiles = len(files)
-	msgLDR = "LDR " + str(numberOfFiles)
-	for file in files:
-		msgLDR += " " + file
-	socket.TCPWriteMessage(msgLDR + "\n")
-	 
+	if checkDirExists(dir):
+		files = [name for name in os.listdir(dir)]
+		numberOfFiles = len(files)
+		msgLDR = "LDR " + str(numberOfFiles)
+		for file in files:
+			msgLDR += " " + file
+		socket.TCPWriteMessage(msgLDR + "\n")
+	else:
+		socket.TCPWriteMessage("no dirs saved" + "\n")
 def restore(folder, socket):
 	dir = USERFOLDER_PATH(currentUser, folder)
 	BS = getDataFromFile(dir) 

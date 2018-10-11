@@ -131,9 +131,12 @@ def dirlist(socket):
 	if loginreply[1] == "OK":
 		socket.TCPWriteMessage("LSD\n")
 		msgFromCS = socket.TCPReadMessage()
-		numberOfDirs = int(msgFromCS[1])
-		for i in range(numberOfDirs):
-			print(msgFromCS[2+i])
+		if msgFromCS[1] == "dirs":
+			print(msgFromCS)
+		else:
+			numberOfDirs = int(msgFromCS[1])
+			for i in range(numberOfDirs):
+				print(msgFromCS[2+i])
 
 def deleteDir(folder,socket):
 	socket.TCPWriteMessage("DEL " + folder + '\n')
