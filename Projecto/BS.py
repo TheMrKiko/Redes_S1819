@@ -292,8 +292,10 @@ def writeBS(msgFromClient, TCPConnection):
 	saveDataInFile(data, dir + "/.~repoinfo_" +  folder + '.txt')
 	TCPConnection.TCPWriteMessage("UPR OK\n")
 
-def restore(folder,socket):
+def restore(socket):
+	folder = socket.TCPReadWord()
 	dir = USERFOLDER_PATH(currentUser,folder)
+	print(dir)
 	files = [name for name in os.listdir(dir)]
 	fileInfos = []
 	fileNames = []
@@ -346,7 +348,7 @@ elif not pid:
 		elif command == "UPL":
 			dictTCPFunctions["writeBS"](msgFromClient, connection)
 		elif command == "RSB":
-			dictTCPFunctions["restore"](msgFromClient[1], connection)
+			dictTCPFunctions["restore"](connection)
 		
 	sys.exit()
 

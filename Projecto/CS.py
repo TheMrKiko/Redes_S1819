@@ -293,7 +293,7 @@ def dirlist(socket):
 def restore(folder, socket):
 	dir = USERFOLDER_PATH(currentUser, folder)
 	BS = getDataFromFile(dir) 
-	msgRSR ="RSR " + BS[0] + " " + str(BS[2])
+	msgRSR ="RSR " + BS[0] + " " + str(BS[1])
 	socket.TCPWriteMessage(msgRSR + "\n")
 
 def backupDir(msgFromClient, TCPConnection):

@@ -123,12 +123,14 @@ def login(user, pw, socket):
 def logout():
 	global userCredentials
 	userCredentials = []
+
 def deluser(socket):
 	socket.TCPWriteMessage("DLU\n")
 
 	msgDLR = socket.TCPReadMessage()
 	global userCredentials
 	if msgDLR[1] == "OK":
+		userCredentials = []
 		print("deleted user " + userCredentials[0])
 
 def dirlist(socket):
@@ -206,8 +208,10 @@ def restore(folder,socket):
 		print(msgRSR)
 		BSAddrStruct = (msgRSR[1], int(msgRSR[2]))
 		print(BSAddrStruct)
+
 		socket2 = TCPConnect().startClient(BSAddrStruct)
 		socket2.TCPWriteMessage("AUT " + userCredentials[0] + ' ' + userCredentials[1] + "\n")
+		
 		msgFromBS = socket2.TCPReadMessage()
 		if msgFromBS[1] == "OK":
 			socket2.TCPWriteMessage("RSB " + folder + "\n")
