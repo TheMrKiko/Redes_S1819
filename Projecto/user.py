@@ -151,9 +151,12 @@ def loginUser(credentials, socket):
 def login(user, pw, socket):
 	global userCredentials
 	if userCredentials == []:
-		msg = loginUser([user, pw], socket)
-		if (msg[1] == "OK" or msg[1] == "NEW"):
-			userCredentials = [user, pw]
+		if (user.isdigit() and pw.isalnum() and len(user) == 5 and len(pw) == 8):
+			msg = loginUser([user, pw], socket)
+			if (msg[1] == "OK" or msg[1] == "NEW"):
+				userCredentials = [user, pw]
+		else:
+			print("please enter a valid user and password")
 	else:
 		print("logout first")
 
