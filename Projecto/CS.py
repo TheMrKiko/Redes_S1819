@@ -298,7 +298,7 @@ def restore(folder, socket):
 	dir = USERFOLDER_PATH(currentUser, folder)
 	print(dir)
 	print("dir ", checkDirExists(dir))
-	if checkDirExists(dir):
+	if checkFileExists(dir):
 		BS = getDataFromFile(dir) 
 		msgRSR ="RSR " + BS[0] + " " + str(BS[1])
 	else:

@@ -265,45 +265,48 @@ def backup(folder, socket):
 		elif loginreply[1] == "OK":
 			dir = "./" + folder
 			files = [name for name in os.listdir(dir)]
-			fileInfos = []
-			for f in files:
-				fileInfos.append([f, time.strftime("%d.%m.%Y %H:%M:%S", time.gmtime(os.path.getmtime(dir + '/' + f))), os.path.getsize(dir + '/' + f)])
-			numberOfFiles = len(files)
-			msg = "BCK " + folder + " " + str(numberOfFiles)
-			for info in fileInfos:
-				for data in info:
-					msg += " " + str(data)
-			socket.TCPWriteMessage(msg + "\n")
-			msgFromCS = socket.TCPReadMessage() #BKR
-			#socket.TCPClose()
+			if len(files):
+				fileInfos = []
+				for f in files:
+					fileInfos.append([f, time.strftime("%d.%m.%Y %H:%M:%S", time.gmtime(os.path.getmtime(dir + '/' + f))), os.path.getsize(dir + '/' + f)])
+				numberOfFiles = len(files)
+				msg = "BCK " + folder + " " + str(numberOfFiles)
+				for info in fileInfos:
+					for data in info:
+						msg += " " + str(data)
+				socket.TCPWriteMessage(msg + "\n")
+				msgFromCS = socket.TCPReadMessage() #BKR
+				#socket.TCPClose()
 
-			BSAddrStruct = (msgFromCS[1], int(msgFromCS[2]))
+				BSAddrStruct = (msgFromCS[1], int(msgFromCS[2]))
+				
+				socket2 = TCPConnect().startClient(BSAddrStruct)
 			
-			socket2 = TCPConnect().startClient(BSAddrStruct)
-		
 
-			socket2.TCPWriteMessage("AUT " + userCredentials[0] + ' ' + userCredentials[1] + "\n")
-			msgFromBS = socket2.TCPReadMessage()
-			if msgFromBS[1] == "OK":
-				numberOfFiles = msgFromCS[3]
-				msg = "UPL " + folder + " " + numberOfFiles 
+				socket2.TCPWriteMessage("AUT " + userCredentials[0] + ' ' + userCredentials[1] + "\n")
+				msgFromBS = socket2.TCPReadMessage()
+				if msgFromBS[1] == "OK":
+					numberOfFiles = msgFromCS[3]
+					msg = "UPL " + folder + " " + numberOfFiles 
 
-				for i in range(int(numberOfFiles)):
-					j = 4 + i * 4
-					msg += " " + msgFromCS[j] + " " + msgFromCS[j+1] + " " + msgFromCS[j+2] + " " + msgFromCS[j+3] + " "
-					socket2.TCPWriteMessage(msg)
-					socket2.TCPWriteFile(dir + "/" + msgFromCS[j])
-					msg = ""
-				socket2.TCPWriteMessage("\n")	
+					for i in range(int(numberOfFiles)):
+						j = 4 + i * 4
+						msg += " " + msgFromCS[j] + " " + msgFromCS[j+1] + " " + msgFromCS[j+2] + " " + msgFromCS[j+3] + " "
+						socket2.TCPWriteMessage(msg)
+						socket2.TCPWriteFile(dir + "/" + msgFromCS[j])
+						msg = ""
+					socket2.TCPWriteMessage("\n")	
 
-				reply = socket2.TCPReadMessage() #UPR
-				if reply[1] == 'OK':
-					print(">> file backup completed  ", folder)
-				else:
-					print("UPR NOK ;(")
-				socket2.TCPClose()
+					reply = socket2.TCPReadMessage() #UPR
+					if reply[1] == 'OK':
+						print(">> file backup completed  ", folder)
+					else:
+						print("UPR NOK ;(")
+					socket2.TCPClose()
+			else:
+				print("backup error: empty dir")
 	else:
-		print("backup + " + folder + ": " + checkCredentials)
+		print("backup " + folder + ": " + checkCredentials)
 	socket.TCPClose()
 
 def restore(folder,socket):

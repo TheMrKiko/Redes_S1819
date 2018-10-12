@@ -107,6 +107,7 @@ class UDPConnect:
 		print("cheguei")
 		dir = USERFOLDER_PATH(user, folder)
 		repInfo = getDataFromFile(dir + "/.~repoinfo_" +  folder + '.txt')
+		print(repInfo)
 		numberOfFiles = len(repInfo)
 		msgLFD = "LFD " + str(numberOfFiles) 
 		for filename in repInfo:
