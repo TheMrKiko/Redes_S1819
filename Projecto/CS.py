@@ -213,11 +213,11 @@ def TCPSIGINT(_, __):
 	sys.exit()
 
 def authenticateUser(msgFromClient, TCPConnection):
-
+	global currentUser
+	print(currentUser)
 	msgUser = msgFromClient[1]
 	msgPw = msgFromClient[2]
 
-	global currentUser
 	path = USERPASS_FILE(msgUser)
 
 	if checkFileExists(path):
@@ -229,6 +229,7 @@ def authenticateUser(msgFromClient, TCPConnection):
 	else:
 		TCPConnection.TCPWriteMessage("AUR NEW\n")
 		saveDataInFile(msgPw, path)
+	print(currentUser)
 
 def deluser(socket):
 	dir = USERFOLDERS_PATH(currentUser)
@@ -280,6 +281,7 @@ def filelist(folder, socket):
 	
 
 def dirlist(socket):
+	print(currentUser)
 	dir = USERFOLDERS_PATH(currentUser)
 	if checkDirExists(dir):
 		files = [name for name in os.listdir(dir)]
@@ -289,11 +291,16 @@ def dirlist(socket):
 			msgLDR += " " + file
 		socket.TCPWriteMessage(msgLDR + "\n")
 	else:
-		socket.TCPWriteMessage("no dirs saved" + "\n")
+		socket.TCPWriteMessage("LSD 0" + "\n")
+
 def restore(folder, socket):
 	dir = USERFOLDER_PATH(currentUser, folder)
-	BS = getDataFromFile(dir) 
-	msgRSR ="RSR " + BS[0] + " " + str(BS[1])
+	print(dir)
+	if checkDirExists(dir):
+		BS = getDataFromFile(dir) 
+		msgRSR ="RSR " + BS[0] + " " + str(BS[1])
+	else:
+		msgRSR = "RSR EOF"
 	socket.TCPWriteMessage(msgRSR + "\n")
 
 def backupDir(msgFromClient, TCPConnection):
@@ -418,6 +425,7 @@ elif not pid:
 		elif command == "BCK":
 			dictTCPFunctions["backupDir"](msgFromClient, connection)
 		elif command == "LSD":
+			print(connection)
 			dictTCPFunctions["dirlist"](connection)
 		elif command == "RST":
 			dictTCPFunctions["restore"](msgFromClient[1], connection)

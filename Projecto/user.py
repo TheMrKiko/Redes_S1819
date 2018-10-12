@@ -141,12 +141,16 @@ class TCPConnect:
 
 # ------------------- FUNCTIONS TO MANAGE COMMANDS -------------------
 def loginUser(credentials, socket):
+
 		message = "AUT" + " " + credentials[0] + " " + credentials[1] + "\n"
 		print(message.split())
 		socket.TCPWriteMessage(message)
 		word = socket.TCPReadMessage()
 		print(word)
-		return word
+		if word == ["ERR"]:
+			print("ERR")
+		else:
+			return word
 	
 def login(user, pw, socket):
 	global userCredentials
@@ -159,6 +163,8 @@ def login(user, pw, socket):
 			print("please enter a valid user and password")
 	else:
 		print("logout first")
+	socket.TCPClose()
+	
 
 def logout():
 	global userCredentials
@@ -169,33 +175,46 @@ def deluser(socket):
 
 	msgDLR = socket.TCPReadMessage()
 	global userCredentials
-	if msgDLR[1] == "OK":
+	if msgDLR[0] == "ERR":
+		print("ERR")
+	elif msgDLR[1] == "OK":
 		print("deleted user " + userCredentials[0])
 		userCredentials = []
+	socket.TCPClose()
 
 def dirlist(socket):
+	global CSAddrStruct
+	global userCredentials
 	loginreply = loginUser(userCredentials, socket)
 	if loginreply[1] == "OK":
 		socket.TCPWriteMessage("LSD\n")
 		msgFromCS = socket.TCPReadMessage()
-		if msgFromCS[1] == "dirs":
+		print(msgFromCS)
+		if msgFromCS == ["LSD", "0"]:
 			print(msgFromCS)
+		elif msgFromCS[0] == "ERR":
+			print("ERR")
 		else:
 			numberOfDirs = int(msgFromCS[1])
 			for i in range(numberOfDirs):
 				print(msgFromCS[2+i])
+		socket.TCPClose()
 
 def filelist(folder,socket):
 	loginreply = loginUser(userCredentials, socket)
 	if loginreply[1] == "OK":
 		socket.TCPWriteMessage("LSF " + folder + "\n")
 		msgLFD = socket.TCPReadMessage()
+	socket.TCPClose()
 
 def deleteDir(folder,socket):
-	socket.TCPWriteMessage("DEL " + folder + '\n')
-	msgDDR = socket.TCPReadMessage()
-	if msgDDR[1] == "OK":
-		print(folder + " deleted")
+	loginreply = loginUser(userCredentials, socket)
+	if loginreply[1] == "OK":
+		socket.TCPWriteMessage("DEL " + folder + '\n')
+		msgDDR = socket.TCPReadMessage()
+		if msgDDR[1] == "OK":
+			print(folder + " deleted")
+	socket.TCPClose()
 
 def backup(folder, socket):
 	loginreply = loginUser(userCredentials, socket)
@@ -240,31 +259,35 @@ def backup(folder, socket):
 			else:
 				print("UPR NOK ;(")
 			socket2.TCPClose()
-			
+	socket.TCPClose()
+
 def restore(folder,socket):
 	loginreply = loginUser(userCredentials, socket)
 	if loginreply[1] == "OK":
 		socket.TCPWriteMessage("RST " + folder + "\n")
 		msgRSR = socket.TCPReadMessage()
 		print(msgRSR)
-		BSAddrStruct = (msgRSR[1], int(msgRSR[2]))
-		print(BSAddrStruct)
+		if msgRSR[1] != "EOF":
+			BSAddrStruct = (msgRSR[1], int(msgRSR[2]))
+			print(BSAddrStruct)
 
-		socket2 = TCPConnect().startClient(BSAddrStruct)
-		socket2.TCPWriteMessage("AUT " + userCredentials[0] + ' ' + userCredentials[1] + "\n")
-		
-		msgFromBS = socket2.TCPReadMessage()
-		if msgFromBS[1] == "OK":
-			socket2.TCPWriteMessage("RSB " + folder + "\n")
-			msgRBR = socket2.TCPReadWord()
-			num = socket2.TCPReadWord()
-			print(num)
-			numberOfFiles = int(num)
-			receiveFileAndWrite("./" + folder, numberOfFiles, socket2)
+			socket2 = TCPConnect().startClient(BSAddrStruct)
+			socket2.TCPWriteMessage("AUT " + userCredentials[0] + ' ' + userCredentials[1] + "\n")
+			
+			msgFromBS = socket2.TCPReadMessage()
+			if msgFromBS[1] == "OK":
+				socket2.TCPWriteMessage("RSB " + folder + "\n")
+				msgRBR = socket2.TCPReadWord()
+				num = socket2.TCPReadWord()
+				print(num)
+				numberOfFiles = int(num)
+				receiveFileAndWrite("./" + folder, numberOfFiles, socket2)
+			else:
+				print("RSB NOK")
+			socket2.TCPClose()
 		else:
-			print("RSB NOK")
-		socket2.TCPClose()
-
+			print("restore error")
+	socket.TCPClose()
 
 # --------------------------- MAIN ---------------------------
 dictFunctions = {
@@ -279,12 +302,12 @@ dictFunctions = {
 
 	}
 	
-TCPClientSocket = TCPConnect().startClient(CSAddrStruct)
 
 #login("86450", "joanachicabarata", TCPClientSocket)
 #backup("RC")
 
 while not close:
+	TCPClientSocket = TCPConnect().startClient(CSAddrStruct)
 	request = input().split()
 	command = request[0]
 	if command == "login":
