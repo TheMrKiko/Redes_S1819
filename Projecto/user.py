@@ -141,152 +141,203 @@ class TCPConnect:
 
 # ------------------- FUNCTIONS TO MANAGE COMMANDS -------------------
 def loginUser(credentials, socket):
-
+		print(credentials)
 		message = "AUT" + " " + credentials[0] + " " + credentials[1] + "\n"
 		print(message.split())
 		socket.TCPWriteMessage(message)
 		word = socket.TCPReadMessage()
 		print(word)
-		if word == ["ERR"]:
-			print("ERR")
-		else:
-			return word
+		return word
 	
-def login(user, pw, socket):
+def checkUserCredentials():
 	global userCredentials
-	if userCredentials == []:
-		if (user.isdigit() and pw.isalnum() and len(user) == 5 and len(pw) == 8):
-			msg = loginUser([user, pw], socket)
-			if (msg[1] == "OK" or msg[1] == "NEW"):
-				userCredentials = [user, pw]
-		else:
-			print("please enter a valid user and password")
+	print(userCredentials)
+	if len(userCredentials) != 0:
+		return "OK"
+	else:
+		return "not logged in"
+
+def login(msgFromClient, socket):
+	global userCredentials
+	if checkUserCredentials() == "not logged in":
+		if len(msgFromClient) == 2:
+			user = msgFromClient[0]
+			pw = msgFromClient[1]
+			if (user.isdigit() and pw.isalnum() and len(user) == 5 and len(pw) == 8):
+				msg = loginUser([user, pw], socket)
+				if msg[0] == "ERR" or msg[1] == "NOK":
+					print("authentication error")
+				else:
+					userCredentials = [user, pw]
+			else:
+				print("please enter a valid user and password")
 	else:
 		print("logout first")
 	socket.TCPClose()
-	
-
+		
 def logout():
 	global userCredentials
 	userCredentials = []
+	print("logout successful")
 
 def deluser(socket):
-	socket.TCPWriteMessage("DLU\n")
-
-	msgDLR = socket.TCPReadMessage()
 	global userCredentials
-	if msgDLR[0] == "ERR":
-		print("ERR")
-	elif msgDLR[1] == "OK":
-		print("deleted user " + userCredentials[0])
-		userCredentials = []
+	checkCredentials = checkUserCredentials()
+	if checkCredentials == "OK":
+		loginreply = loginUser(userCredentials, socket)
+		if loginreply[0] == "ERR":
+			print("ERR authentication")
+		elif loginreply[1] == "OK":
+			socket.TCPWriteMessage("DLU\n")
+			msgDLR = socket.TCPReadMessage()
+
+			if msgDLR[0] == "ERR":
+				print("ERR deluser")
+			elif msgDLR[1] == "OK":
+				print("deleted user " + userCredentials[0])
+			elif msgDLR[1] == "NOK":
+				print("error: user not deleted")
+				print("error: erase backup dirs first")
+	else:
+		print("deluser: " + checkCredentials)
 	socket.TCPClose()
 
 def dirlist(socket):
-	global CSAddrStruct
 	global userCredentials
-	loginreply = loginUser(userCredentials, socket)
-	if loginreply[1] == "OK":
-		socket.TCPWriteMessage("LSD\n")
-		msgFromCS = socket.TCPReadMessage()
-		print(msgFromCS)
-		if msgFromCS == ["LSD", "0"]:
+	checkCredentials = checkUserCredentials()
+	if checkCredentials == "OK":
+		loginreply = loginUser(userCredentials, socket)
+		if loginreply[0] == "ERR":
+			print("ERR authentication")
+		elif loginreply[1] == "OK":
+			socket.TCPWriteMessage("LSD\n")
+			msgFromCS = socket.TCPReadMessage()
 			print(msgFromCS)
-		elif msgFromCS[0] == "ERR":
-			print("ERR")
-		else:
-			numberOfDirs = int(msgFromCS[1])
-			for i in range(numberOfDirs):
-				print(msgFromCS[2+i])
-		socket.TCPClose()
+			if msgFromCS == ["LSD", "0"]:
+				print(msgFromCS)
+			elif msgFromCS[0] == "ERR":
+				print("ERR")
+			else:
+				numberOfDirs = int(msgFromCS[1])
+				for i in range(numberOfDirs):
+					print(msgFromCS[2+i])
+	else:
+		print("dirlist: " + checkCredentials)
+	socket.TCPClose()
 
 def filelist(folder,socket):
-	loginreply = loginUser(userCredentials, socket)
-	if loginreply[1] == "OK":
-		socket.TCPWriteMessage("LSF " + folder + "\n")
-		msgLFD = socket.TCPReadMessage()
+	global userCredentials
+	checkCredentials = checkUserCredentials()
+	if checkCredentials == "OK":
+		loginreply = loginUser(userCredentials, socket)
+		if loginreply[0] == "ERR":
+			print("ERR authentication")
+		elif loginreply[1] == "OK":
+			socket.TCPWriteMessage("LSF " + folder + "\n")
+			msgLFD = socket.TCPReadMessage()
+	else:
+		print("filelist + " + folder + ": " + checkCredentials)
 	socket.TCPClose()
 
 def deleteDir(folder,socket):
-	loginreply = loginUser(userCredentials, socket)
-	if loginreply[1] == "OK":
-		socket.TCPWriteMessage("DEL " + folder + '\n')
-		msgDDR = socket.TCPReadMessage()
-		if msgDDR[1] == "OK":
-			print(folder + " deleted")
+	global userCredentials
+	checkCredentials = checkUserCredentials()
+	if checkCredentials == "OK":
+		loginreply = loginUser(userCredentials, socket)
+		if loginreply[0] == "ERR":
+			print("ERR authentication")
+		elif loginreply[1] == "OK":
+			socket.TCPWriteMessage("DEL " + folder + '\n')
+			msgDDR = socket.TCPReadMessage()
+			if msgDDR[1] == "OK":
+				print(folder + " deleted")
+	else:
+		print("deletedir + " + folder + ": " + checkCredentials)
 	socket.TCPClose()
 
 def backup(folder, socket):
-	loginreply = loginUser(userCredentials, socket)
-	print(loginreply)
-	if loginreply[1] == "OK":
-		dir = "./" + folder
-		files = [name for name in os.listdir(dir)]
-		fileInfos = []
-		for f in files:
-			fileInfos.append([f, time.strftime("%d.%m.%Y %H:%M:%S", time.gmtime(os.path.getmtime(dir + '/' + f))), os.path.getsize(dir + '/' + f)])
-		numberOfFiles = len(files)
-		msg = "BCK " + folder + " " + str(numberOfFiles)
-		for info in fileInfos:
-			for data in info:
-				msg += " " + str(data)
-		socket.TCPWriteMessage(msg + "\n")
-		msgFromCS = socket.TCPReadMessage() #BKR
-		#socket.TCPClose()
+	checkCredentials = checkUserCredentials()
+	if checkCredentials == "OK":
+		loginreply = loginUser(userCredentials, socket)
+		print(loginreply)
+		if loginreply[0] == "ERR":
+			print("ERR authentication")
+		elif loginreply[1] == "OK":
+			dir = "./" + folder
+			files = [name for name in os.listdir(dir)]
+			fileInfos = []
+			for f in files:
+				fileInfos.append([f, time.strftime("%d.%m.%Y %H:%M:%S", time.gmtime(os.path.getmtime(dir + '/' + f))), os.path.getsize(dir + '/' + f)])
+			numberOfFiles = len(files)
+			msg = "BCK " + folder + " " + str(numberOfFiles)
+			for info in fileInfos:
+				for data in info:
+					msg += " " + str(data)
+			socket.TCPWriteMessage(msg + "\n")
+			msgFromCS = socket.TCPReadMessage() #BKR
+			#socket.TCPClose()
 
-		BSAddrStruct = (msgFromCS[1], int(msgFromCS[2]))
+			BSAddrStruct = (msgFromCS[1], int(msgFromCS[2]))
+			
+			socket2 = TCPConnect().startClient(BSAddrStruct)
 		
-		socket2 = TCPConnect().startClient(BSAddrStruct)
-	
 
-		socket2.TCPWriteMessage("AUT " + userCredentials[0] + ' ' + userCredentials[1] + "\n")
-		msgFromBS = socket2.TCPReadMessage()
-		if msgFromBS[1] == "OK":
-			numberOfFiles = msgFromCS[3]
-			msg = "UPL " + folder + " " + numberOfFiles 
+			socket2.TCPWriteMessage("AUT " + userCredentials[0] + ' ' + userCredentials[1] + "\n")
+			msgFromBS = socket2.TCPReadMessage()
+			if msgFromBS[1] == "OK":
+				numberOfFiles = msgFromCS[3]
+				msg = "UPL " + folder + " " + numberOfFiles 
 
-			for i in range(int(numberOfFiles)):
-				j = 4 + i * 4
-				msg += " " + msgFromCS[j] + " " + msgFromCS[j+1] + " " + msgFromCS[j+2] + " " + msgFromCS[j+3] + " "
-				socket2.TCPWriteMessage(msg)
-				socket2.TCPWriteFile(dir + "/" + msgFromCS[j])
-				msg = ""
-			socket2.TCPWriteMessage("\n")	
+				for i in range(int(numberOfFiles)):
+					j = 4 + i * 4
+					msg += " " + msgFromCS[j] + " " + msgFromCS[j+1] + " " + msgFromCS[j+2] + " " + msgFromCS[j+3] + " "
+					socket2.TCPWriteMessage(msg)
+					socket2.TCPWriteFile(dir + "/" + msgFromCS[j])
+					msg = ""
+				socket2.TCPWriteMessage("\n")	
 
-			reply = socket2.TCPReadMessage() #UPR
-			if reply[1] == 'OK':
-				print(">> file backup completed  ", folder)
-			else:
-				print("UPR NOK ;(")
-			socket2.TCPClose()
+				reply = socket2.TCPReadMessage() #UPR
+				if reply[1] == 'OK':
+					print(">> file backup completed  ", folder)
+				else:
+					print("UPR NOK ;(")
+				socket2.TCPClose()
+	else:
+		print("backup + " + folder + ": " + checkCredentials)
 	socket.TCPClose()
 
 def restore(folder,socket):
-	loginreply = loginUser(userCredentials, socket)
-	if loginreply[1] == "OK":
-		socket.TCPWriteMessage("RST " + folder + "\n")
-		msgRSR = socket.TCPReadMessage()
-		print(msgRSR)
-		if msgRSR[1] != "EOF":
-			BSAddrStruct = (msgRSR[1], int(msgRSR[2]))
-			print(BSAddrStruct)
+	checkCredentials = checkUserCredentials()
+	if checkCredentials == "OK":
+		loginreply = loginUser(userCredentials, socket)
+		if loginreply[0] == "ERR":
+			print("ERR authentication")
+		elif loginreply[1] == "OK":
+			socket.TCPWriteMessage("RST " + folder + "\n")
+			msgRSR = socket.TCPReadMessage()
+			print(msgRSR)
+			if msgRSR[1] != "EOF":
+				BSAddrStruct = (msgRSR[1], int(msgRSR[2]))
+				print(BSAddrStruct)
 
-			socket2 = TCPConnect().startClient(BSAddrStruct)
-			socket2.TCPWriteMessage("AUT " + userCredentials[0] + ' ' + userCredentials[1] + "\n")
-			
-			msgFromBS = socket2.TCPReadMessage()
-			if msgFromBS[1] == "OK":
-				socket2.TCPWriteMessage("RSB " + folder + "\n")
-				msgRBR = socket2.TCPReadWord()
-				num = socket2.TCPReadWord()
-				print(num)
-				numberOfFiles = int(num)
-				receiveFileAndWrite("./" + folder, numberOfFiles, socket2)
+				socket2 = TCPConnect().startClient(BSAddrStruct)
+				socket2.TCPWriteMessage("AUT " + userCredentials[0] + ' ' + userCredentials[1] + "\n")
+				
+				msgFromBS = socket2.TCPReadMessage()
+				if msgFromBS[1] == "OK":
+					socket2.TCPWriteMessage("RSB " + folder + "\n")
+					msgRBR = socket2.TCPReadWord()
+					num = socket2.TCPReadWord()
+					print(num)
+					numberOfFiles = int(num)
+					receiveFileAndWrite("./" + folder, numberOfFiles, socket2)
+				else:
+					print("RSB NOK")
+				socket2.TCPClose()
 			else:
-				print("RSB NOK")
-			socket2.TCPClose()
-		else:
-			print("restore error")
+				print("restore error")
+	else:
+		print("backup + " + folder + ": " + checkCredentials)
 	socket.TCPClose()
 
 # --------------------------- MAIN ---------------------------
@@ -311,7 +362,7 @@ while not close:
 	request = input().split()
 	command = request[0]
 	if command == "login":
-		dictFunctions["login"](request[1], request[2], TCPClientSocket)
+		dictFunctions["login"](request[1:], TCPClientSocket)
 	elif command == "backup":
 		dictFunctions["backup"](request[1], TCPClientSocket)
 	elif command == "dirlist":
