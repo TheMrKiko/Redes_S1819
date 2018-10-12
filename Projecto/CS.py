@@ -232,19 +232,20 @@ def authenticateUser(msgFromClient, TCPConnection):
 	print(currentUser)
 
 def deluser(socket):
-	dir = USERFOLDERS_PATH(currentUser)
+	"""dir = USERFOLDERS_PATH(currentUser)
+	print(dir)
 	if checkDirExists(dir):
 		dirs = [name for name in os.listdir(dir)]
 		if len(dirs) > 0:
 			for name in dirs:
 				deleteDir(name,socket)
-		os.rmdir(dir)
-		os.remove(USERPASS_FILE(currentUser))
+		os.rmdir(dir)"""
+	os.remove(USERPASS_FILE(currentUser))
 
-		socket.TCPWriteMessage("DLR OK\n")
+	socket.TCPWriteMessage("DLR OK\n")
 	
-	else:
-		socket.TCPWriteMessage("DLR NOK\n")
+	#else:
+	socket.TCPWriteMessage("DLR NOK\n")
 
 
 def deleteDir(folder,socket):
@@ -296,6 +297,7 @@ def dirlist(socket):
 def restore(folder, socket):
 	dir = USERFOLDER_PATH(currentUser, folder)
 	print(dir)
+	print("dir ", checkDirExists(dir))
 	if checkDirExists(dir):
 		BS = getDataFromFile(dir) 
 		msgRSR ="RSR " + BS[0] + " " + str(BS[1])
