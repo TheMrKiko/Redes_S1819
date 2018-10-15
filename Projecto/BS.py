@@ -29,10 +29,16 @@ USERFOLDERS_PATH = lambda user : BSDATA_PATH + '/user_' + user
 USERFOLDER_PATH = lambda user, folder : USERFOLDERS_PATH(user) + '/' + folder
 
 def checkFileExists(filename):
-	return os.path.isfile(filename)
+	try:
+		return os.path.isfile(filename)
+	except:
+		print("file not found")
 
 def checkDirExists(path):
-	return os.path.isdir(path)
+	try:
+		return os.path.isdir(path)
+	except:
+		print("directoy not found")
 	
 def getDataFromFile(filename):
 	if checkFileExists(filename):
@@ -70,28 +76,41 @@ def receiveFileAndWrite(dir, numberOfFiles, TCPConnection):
 class UDPConnect:
 
 	def __init__(self):
-		self.UDPClientSocket = socket.socket(family = socket.AF_INET, type = socket.SOCK_DGRAM)
+		try:
+			self.UDPClientSocket = socket.socket(family = socket.AF_INET, type = socket.SOCK_DGRAM)
 
-		UDPPOpens.append(self)
+			UDPPOpens.append(self)
 
-		print(">> UDP server up and listening")
+			print(">> UDP server up and listening")
+		except:
+			print("error starting UDP")
 
 	# FUNCTIONS TO COMMUNICATE
+
 	def UDPReceive(self):
+	
 		bytesAddressPair = self.UDPClientSocket.recvfrom(BUFFERSIZE)
 		message = bytes.decode(bytesAddressPair[0])
 		addrstruct = bytesAddressPair[1]
 		print(">> Recieved: ", message)
 		return (message.split(), addrstruct)
 	
+		print("error receiving UDP")
+
 	def UDPSend(self, message, addrstruct):
-		bytesToSend = str.encode(message)
-		self.UDPClientSocket.sendto(bytesToSend, addrstruct)
-		print(">> Sent: ", message)
+		try:
+			bytesToSend = str.encode(message)
+			self.UDPClientSocket.sendto(bytesToSend, addrstruct)
+			print(">> Sent: ", message)
+		except:
+			print("error sending UDP")
 
 	def UDPClose(self):
-		self.UDPClientSocket.close()
-		print(">> UDP closed")
+		try:
+			self.UDPClientSocket.close()
+			print(">> UDP closed")
+		except:
+			print("error closing UDP")
 		
 	# ------------------- FUNCTIONS TO MANAGE COMMANDS -------------------
 	def init(self):
@@ -127,8 +146,13 @@ class UDPConnect:
 				self.UDPSend(msgDBR,addrstruct)
 		dir = USERFOLDERS_PATH(user)
 		if not os.listdir(dir):
-			os.rmdir(dir)
-			os.remove(USERPASS_FILE(user))
+			try:
+				os.rmdir(dir)
+				os.remove(USERPASS_FILE(user))
+			except:
+				msgDBR = "DBR NOK"
+				self.UDPSend(msgDBR,addrstruct)
+
 
 
 	def run(self):
@@ -168,6 +192,8 @@ def UDPSIGINT(_, __):
 		
 		if msg[1] == "OK":
 			udp.UDPClose()
+		elif msg[1] == "NOK":
+			print("UAR NOK")
 		else:
 			print("UAR ERR")	
 	sys.exit()
@@ -179,42 +205,56 @@ def UDPSIGINT(_, __):
 class TCPConnect:
 	
 	def __init__(self):
-		self.TCPServerSocket = socket.socket(family = socket.AF_INET, type = socket.SOCK_STREAM)
-		self.connection = self.TCPServerSocket
-		TCPOpens.append(self)
+		try:	
+			self.TCPServerSocket = socket.socket(family = socket.AF_INET, type = socket.SOCK_STREAM)
+			self.connection = self.TCPServerSocket
+			TCPOpens.append(self)
+		except:
+			print("error starting TCP socket")
 
 	
 	def startServer(self):
-		self.TCPServerSocket.bind((localIP, BSPort))
+		try:
+			self.TCPServerSocket.bind((localIP, BSPort))
 
-		self.TCPServerSocket.listen(21)
+			self.TCPServerSocket.listen(21)
 
-		while 1:
-			self.connection, self.addr = self.TCPServerSocket.accept()
+			while 1:
+				self.connection, self.addr = self.TCPServerSocket.accept()
 
-			pid = os.fork()
-			if pid == -1:
-				print("erro no fork")
-			elif pid:
-					continue
+				pid = os.fork()
+				if pid == -1:
+					print("erro no fork")
+				elif pid:
+						continue
 
-			print(">> Client: ", self.addr)
+				print(">> Client: ", self.addr)
 
-			return self
+				return self
+		except:
+			print("error starting TCP server")
+			sys.exit()
 	
 	# ------------------- FUNCTIONS TO COMMUNICATE -------------------
 	def TCPWrite(self, tosend):
-		nleft = len(tosend)
-		while (nleft):
-			nleft -= self.connection.send(tosend)
+		try:
+			nleft = len(tosend)
+			while (nleft):
+				nleft -= self.connection.send(tosend)
+		except:
+			print("error writing TCP")
 
-	def TCPWriteMessage(self, message): #PUT \n in the end pls
+	def TCPWriteMessage(self, message): 
 		bytesToSend = str.encode(message)
 		self.TCPWrite(bytesToSend)
 		print(">> Sent: ", message)
+		
 
 	def TCPRead(self, bufferSize):
-		return self.connection.recv(bufferSize)
+		try:
+			return self.connection.recv(bufferSize)
+		except:
+			print("error reading TCP")
 
 	def TCPReadMessage(self):
 		message = self.TCPReadStepByStep(BUFFERSIZE, '\n')
@@ -233,35 +273,46 @@ class TCPConnect:
 		return message[:-1] #erase end from string
 
 	def TCPReadFile(self, filename, filesize):
-		os.makedirs(os.path.dirname(filename), exist_ok = True)
-		with open(filename, "wb") as fp:
-			while(filesize):
-				if filesize > BUFFERSIZE:
-					toRead = BUFFERSIZE
-				else:
-					toRead = filesize
-				bytes = self.TCPRead(toRead)
-				fp.write(bytes)
-				filesize -= len(bytes)
+		try:
+			os.makedirs(os.path.dirname(filename), exist_ok = True)
+			with open(filename, "wb") as fp:
+				while(filesize):
+					if filesize > BUFFERSIZE:
+						toRead = BUFFERSIZE
+					else:
+						toRead = filesize
+					bytes = self.TCPRead(toRead)
+					fp.write(bytes)
+					filesize -= len(bytes)
 
-		print('>> Received File: ', filename)
+			print('>> Received File: ', filename)
+		except:
+			print("error reading files from directory")
+
 
 	def TCPWriteFile(self, filepath):
-		fp = open(filepath, 'rb') #mode: read bytes
-		data = fp.read(BUFFERSIZE)
-		while (data):
-			self.TCPWrite(data)
+		try:
+			fp = open(filepath, 'rb') #mode: read bytes
 			data = fp.read(BUFFERSIZE)
-		fp.close()
-		print(">> Sent File: ", filepath)
+			while (data):
+				self.TCPWrite(data)
+				data = fp.read(BUFFERSIZE)
+			fp.close()
+			print(">> Sent File: ", filepath)
+		except:
+			print("error writing file")
 
 	def TCPClose(self):
+	
 		self.connection.close()
 		self.TCPServerSocket.close()
 		print(">> TCP closed")
+	
+		#print("error closing TCP")
 
 # ------------------- FUNCTIONS TO MANAGE COMMANDS -------------------
 def TCPSIGINT(_, __):
+	print("tcpsigint")
 	for tcp in TCPOpens:
 		tcp.TCPClose()
 	sys.exit()
@@ -292,6 +343,7 @@ def writeBS(msgFromClient, TCPConnection):
 	
 	saveDataInFile(data, dir + "/.~repoinfo_" +  folder + '.txt')
 	TCPConnection.TCPWriteMessage("UPR OK\n")
+	
 
 def restore(msg, socket):
 	dir = USERFOLDER_PATH(currentUser,msg[1])
@@ -326,8 +378,7 @@ def restore(msg, socket):
 dictTCPFunctions = {
 	"authenticateUser": authenticateUser,
 	"writeBS": writeBS,
-	"restore": restore,
-	
+	"restore": restore
 
 }
 

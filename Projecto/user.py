@@ -190,7 +190,6 @@ def deluser(socket):
 		elif loginreply[1] == "OK":
 			socket.TCPWriteMessage("DLU\n")
 			msgDLR = socket.TCPReadMessage()
-
 			if msgDLR[0] == "ERR":
 				print("ERR deluser")
 			elif msgDLR[1] == "OK":
@@ -235,6 +234,12 @@ def filelist(folder,socket):
 		elif loginreply[1] == "OK":
 			socket.TCPWriteMessage("LSF " + folder + "\n")
 			msgLFD = socket.TCPReadMessage()
+			numberOfFiles = int(msgLFD[3])
+			filesToPrint = ""
+			for i in range(numberOfFiles):
+				j = 4 + 4 * i
+				filesToPrint +=  msgLFD[j]
+			print(filesToPrint)
 	else:
 		print("filelist + " + folder + ": " + checkCredentials)
 	socket.TCPClose()
@@ -276,13 +281,11 @@ def backup(folder, socket):
 						msg += " " + str(data)
 				socket.TCPWriteMessage(msg + "\n")
 				msgFromCS = socket.TCPReadMessage() #BKR
-				#socket.TCPClose()
-
+				
 				BSAddrStruct = (msgFromCS[1], int(msgFromCS[2]))
 				
 				socket2 = TCPConnect().startClient(BSAddrStruct)
 			
-
 				socket2.TCPWriteMessage("AUT " + userCredentials[0] + ' ' + userCredentials[1] + "\n")
 				msgFromBS = socket2.TCPReadMessage()
 				if msgFromBS[1] == "OK":
@@ -301,7 +304,7 @@ def backup(folder, socket):
 					if reply[1] == 'OK':
 						print(">> file backup completed  ", folder)
 					else:
-						print("UPR NOK ;(")
+						print("UPR NOK")
 					socket2.TCPClose()
 			else:
 				print("backup error: empty dir")
@@ -353,12 +356,7 @@ dictFunctions = {
 	"deluser": deluser,
 	"deleteDir": deleteDir,
 	"filelist": filelist
-
 	}
-	
-
-#login("86450", "joanachicabarata", TCPClientSocket)
-#backup("RC")
 
 while not close:
 	TCPClientSocket = TCPConnect().startClient(CSAddrStruct)

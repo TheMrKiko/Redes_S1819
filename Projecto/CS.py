@@ -11,6 +11,7 @@ from datetime import datetime
 localIP = 'localhost'#socket.gethostbyname(socket.gethostname())
 BUFFERSIZE = 1024
 
+#dirs to store info for users and backups
 CSDATA_PATH = './csdata'
 BACKUPLIST_FILE = CSDATA_PATH + '/backup.txt'
 TMP_UDP_FILE = CSDATA_PATH + '/UDPtempmessage.txt'
@@ -25,25 +26,37 @@ USERFOLDER_PATH = lambda user, folder : USERFOLDERS_PATH(user) + '/' + folder
 
 backupServers = [] #store BS (ip, port) 
 currentUser = None
-TCPOpens = []
-UDPOpens = []
+TCPOpens = [] #array of tcp connections
+UDPOpens = [] #array of udp connections
 
+
+#creating file to store BS information using json library: backupServers
 os.makedirs(os.path.dirname(BACKUPLIST_FILE), exist_ok = True)
 fp = open(BACKUPLIST_FILE, 'w')
 json.dump(backupServers, fp)
 fp.close()
 
+#default port
 if len(sys.argv) < 3:
 	localPort = 58013
 else:
 	localPort = int(sys.argv[2])
 
+#verification if a file exists
 def checkFileExists(filename):
-	return os.path.isfile(filename)
+	try:
+		return os.path.isfile(filename)
+	except:
+		print("File not found")
 
+#verification if a dir exists
 def checkDirExists(path):
-	return os.path.isdir(path)
+	try:
+		return os.path.isdir(path)
+	except:
+		print("Directory not found")
 	
+#opens a file and receives the data structure saved using json library
 def getDataFromFile(filename):
 	if checkFileExists(filename):
 		fp = open(filename, 'r')
@@ -52,12 +65,16 @@ def getDataFromFile(filename):
 		print(">> Loaded: ", ds)
 		return ds
 
+#writes a data structure in a file using json library
 def saveDataInFile(data, filename):
-	os.makedirs(os.path.dirname(filename), exist_ok = True)
-	fp = open(filename, 'w')
-	json.dump(data, fp)
-	fp.close()
-	print(">> Saved: ", data)
+	try:
+		os.makedirs(os.path.dirname(filename), exist_ok = True)
+		fp = open(filename, 'w')
+		json.dump(data, fp)
+		fp.close()
+		print(">> Saved: ", data)
+	except:
+		print("Error saving data in file")
 
 # -------------------------------- PROCESS FOR UDP --------------------------------
 class UDPConnect:
@@ -65,55 +82,81 @@ class UDPConnect:
 	def __init__(self):
 		try:
 			self.UDPServerSocket = socket.socket(family = socket.AF_INET, type = socket.SOCK_DGRAM)
+			UDPOpens.append(self)
 		except:
 			print("erro no socket")
-		UDPOpens.append(self)
 
 	def startServer(self):
+		try:
+			self.UDPServerSocket.bind((localIP, localPort))
 
-		self.UDPServerSocket.bind((localIP, localPort))
+			print(">> UDP server up and listening at ", (localIP, localPort))
 
-		print(">> UDP server up and listening at ", (localIP, localPort))
-
-		return self
+			return self
+		except:
+			print("error starting UDP server")
 
 	# FUNCTIONS TO COMMUNICATE
 	def UDPReceive(self):
-		bytesAddressPair = self.UDPServerSocket.recvfrom(BUFFERSIZE)
-		message = bytes.decode(bytesAddressPair[0])
-		addrstruct = bytesAddressPair[1]
-		print(">> Received: ", message)
-		return (message.split(), addrstruct)
+		try:
+			bytesAddressPair = self.UDPServerSocket.recvfrom(BUFFERSIZE)
+			message = bytes.decode(bytesAddressPair[0])
+			addrstruct = bytesAddressPair[1]
+			print(">> Received: ", message)
+			return (message.split(), addrstruct)
+		except:
+			print("error receiving UDP")
 	
 	def UDPSend(self, message, addrstruct):
-		bytesToSend = str.encode(message)
-		self.UDPServerSocket.sendto(bytesToSend, addrstruct)
-		print(">> Sent: ", message)
+		try:
+			bytesToSend = str.encode(message)
+			self.UDPServerSocket.sendto(bytesToSend, addrstruct)
+			print(">> Sent: ", message)
+		except:
+			print("error sending UDP")
 
 	def UDPClose(self):
-		self.UDPServerSocket.close()
-		print(">> UDP closed")
+		try:
+			self.UDPServerSocket.close()
+			print(">> UDP closed")
+		except:
+			print("error closing UDP")
 
 	# ------------------- FUNCTIONS TO MANAGE COMMANDS -------------------
 	def registerBS(self, message, addressstruct):
 		BSaddr = message[1]
 		BSport = message[2]
-		print(addressstruct)		
+		flag = 0
 		data = getDataFromFile(BACKUPLIST_FILE)
-		data.append([BSaddr, BSport,addressstruct[1]])
-		saveDataInFile(data, BACKUPLIST_FILE)
-		self.UDPSend("RGR OK", addressstruct)
-		print("+BS " + BSaddr + " " + BSport)
+		for bs in data: #checking if BS was already stored
+			if bs[0] == BSaddr and bs[1] ==BSport:
+				print("BS already registered")
+				flag = 1
+		if len(message) != 3: #syntax checking
+			print("RGR ERR")
+		elif flag != 1:#if new BS
+			data.append([BSaddr, BSport,addressstruct[1]])
+			saveDataInFile(data, BACKUPLIST_FILE)
+			self.UDPSend("RGR OK", addressstruct)
+			print("+BS " + BSaddr + " " + BSport)
+		else: #BS already registered
+			print("RGR NOK")
 
-	def unregisterBS(self, ipBS,portBS,addrstruct):
+	def unregisterBS(self, message,addrstruct):
 		data = getDataFromFile(BACKUPLIST_FILE)
-		print(portBS)
+		print("data", data)
+		print("msg", message)
+		if len(message)!=3: #syntax checking
+			msgERR = "UAR ERR" 
+			self.UDPSend("UAR ERR",addrstruct)
+			return
 		for BS in data:
 			print(BS)
-			if BS[0] == ipBS and BS[1] == portBS:
-					data.remove(BS)
-					break
-		self.UDPSend("UAR OK",addrstruct)
+			if BS[0] == message[1] and BS[1] == message[2]: #if BS in saved BS's
+				data.remove(BS)
+				self.UDPSend("UAR OK",addrstruct)
+				return
+		self.UDPSend("UAR NOK",addrstruct) #BS not known to CS
 		
 	# --------------------------- MAIN ---------------------------
 
@@ -132,11 +175,11 @@ class UDPConnect:
 			if command == 'REG':
 				dictUDPFunctions["registerBS"](message, addrstruct)
 			elif command =="UNR":
-				dictUDPFunctions["unregisterBS"](message[1],message[2],addrstruct)
+				dictUDPFunctions["unregisterBS"](message,addrstruct)
 		# CLOSE CONNECTIONS
 		self.UDPServerSocket.close()
 
-def UDPSIGINT(_, __):
+def UDPSIGINT(_, __): #signal ^C handler
 	for udp in UDPOpens:
 		udp.UDPClose()
 	sys.exit()
@@ -148,40 +191,51 @@ def UDPSIGINT(_, __):
 class TCPConnect:
 
 	def __init__(self):
-		self.TCPServerSocket = socket.socket(family = socket.AF_INET, type = socket.SOCK_STREAM)
-		self.connection = self.TCPServerSocket
-
-		TCPOpens.append(self)
+		try:
+			self.TCPServerSocket = socket.socket(family = socket.AF_INET, type = socket.SOCK_STREAM)
+			self.connection = self.TCPServerSocket
+			TCPOpens.append(self)
+		except:
+			print("error starting TCP")
 
 	
 	def startServer(self):
-		self.TCPServerSocket.bind((localIP, localPort))
-				
-		self.TCPServerSocket.listen(21)
+		try:
+			self.TCPServerSocket.bind((localIP, localPort))
+					
+			self.TCPServerSocket.listen(21)
 
-		while 1:
-			self.connection, self.addr = self.TCPServerSocket.accept()
+			while 1:
+				self.connection, self.addr = self.TCPServerSocket.accept()
 
-			pid = os.fork()
-			if pid == -1:
-				print("erro no fork")
-			elif pid:
-					continue
+				pid = os.fork()
+				if pid == -1:
+					print("erro no fork")
+				elif pid:
+						continue
 
-			print(">> Client: ", self.addr)
+				print(">> Client: ", self.addr)
 
-			return self
+				return self
+		except:
+			print("error starting TCP server")
 	
 	# ------------------- FUNCTIONS TO COMMUNICATE -------------------
 	def TCPWrite(self, tosend):
-		nleft = len(tosend)
-		while (nleft):
-			nleft -= self.connection.send(tosend)
+		try:
+			nleft = len(tosend)
+			while (nleft):
+				nleft -= self.connection.send(tosend)
+		except:
+			print("error writing tcp")
 
 	def TCPWriteMessage(self, message): #PUT \n in the end pls
-		bytesToSend = str.encode(message)
-		self.TCPWrite(bytesToSend)
-		print(">> Sent: ", message)
+		try:
+			bytesToSend = str.encode(message)
+			self.TCPWrite(bytesToSend)
+			print(">> Sent: ", message)
+		except:
+			print("error writing message")
 
 	def TCPRead(self, bufferSize):
 		return self.connection.recv(bufferSize)
@@ -201,13 +255,16 @@ class TCPConnect:
 		return message[:-1] #erase end from string
 
 	def TCPClose(self):
-		self.connection.close()
-		self.TCPServerSocket.close()
-		print(">> TCP closed")
+		try:
+			self.connection.close()
+			self.TCPServerSocket.close()
+			print(">> TCP closed")
+		except:
+			print("error closing TCP")
 
 
 # ------------------- FUNCTIONS TO MANAGE COMMANDS -------------------
-def TCPSIGINT(_, __):
+def TCPSIGINT(_, __): #^C handler
 	for tcp in TCPOpens:
 		tcp.TCPClose()
 	sys.exit()
@@ -218,43 +275,39 @@ def authenticateUser(msgFromClient, TCPConnection):
 	msgUser = msgFromClient[1]
 	msgPw = msgFromClient[2]
 
-	path = USERPASS_FILE(msgUser)
+	path = USERPASS_FILE(msgUser) #file with pw of user stored
 
-	if checkFileExists(path):
+	if checkFileExists(path): #if already registered user
 		if getDataFromFile(path) == msgPw:
 			TCPConnection.TCPWriteMessage("AUR OK\n")
 			currentUser = msgUser
-		else:
+		else: #wrong pw
 			TCPConnection.TCPWriteMessage("AUR NOK\n")
-	else:
+	else: #new user
 		TCPConnection.TCPWriteMessage("AUR NEW\n")
 		saveDataInFile(msgPw, path)
 	print(currentUser)
 
 def deluser(socket):
-	"""dir = USERFOLDERS_PATH(currentUser)
+	dir = USERFOLDERS_PATH(currentUser) #dir with files named after dirs stored in BS
 	print(dir)
 	if checkDirExists(dir):
 		dirs = [name for name in os.listdir(dir)]
-		if len(dirs) > 0:
-			for name in dirs:
-				deleteDir(name,socket)
-		os.rmdir(dir)"""
-	os.remove(USERPASS_FILE(currentUser))
+		if len(dirs) > 0: #if dirs still in BS
+			socket.TCPWriteMessage("DLR NOK\n")
+		else:
+			os.rmdir(dir) #remove user info stored in CS
+			os.remove(USERPASS_FILE(currentUser))
 
-	socket.TCPWriteMessage("DLR OK\n")
+			socket.TCPWriteMessage("DLR OK\n")
 	
-	#else:
-	socket.TCPWriteMessage("DLR NOK\n")
-
-
 def deleteDir(folder,socket):
 	dir = USERFOLDER_PATH(currentUser, folder)
-	dataBS = getDataFromFile(dir)
+	dataBS = getDataFromFile(dir) #check which BS the dir is stored
 	os.remove(dir)
 	msgDLB = "DLB " + currentUser + " " + folder
 	UDPConnection = UDPConnect()
-	UDPConnection.UDPSend(msgDLB, (dataBS[0], int(dataBS[2])))
+	UDPConnection.UDPSend(msgDLB, (dataBS[0], int(dataBS[2]))) #ask BS to delete
 	msgDBR = UDPConnection.UDPReceive()[0]
 	if msgDBR[1] == "OK":
 		socket.TCPWriteMessage("DDR OK\n")
@@ -265,8 +318,7 @@ def deleteDir(folder,socket):
 
 def filelist(folder, socket):
 	dir = USERFOLDER_PATH(currentUser, folder)
-	dataBS = getDataFromFile(dir)
-	print(dir)
+	dataBS = getDataFromFile(dir) #check which BS the dir is stored
 	if checkFileExists(dir):
 		UDPConnection = UDPConnect()
 		UDPConnection.UDPSend("LSF " + currentUser + " " + folder , (dataBS[0], int(dataBS[2])))
@@ -335,8 +387,6 @@ def backupDir(msgFromClient, TCPConnection):
 		
 		print(dictFilesOfUser)
 		print(dictFilesSaved)
-		#datetime_object = time.strptime(msgFromClient[j+1] + " " + msgFromClient[j+2], "%d.%m.%Y %H:%M:%S")
-		#print(datetime_object)
 		
 		for filesOfUser in dictFilesOfUser:
 			for filesSaved in dictFilesSaved:
@@ -347,15 +397,7 @@ def backupDir(msgFromClient, TCPConnection):
 				else:
 					print("not sending ", filesOfUser)
 
-		"""for (filesOfUser, modDateUser) , (filesSaved, modDateSaved) in zip(dictFilesOfUser.items(), dictFilesSaved.items()):
-			if filesOfUser not in dictFilesSaved or filesOfUser == filesSaved and modDateUser > modDateSaved:
-				print("sending ", filesOfUser)
-				msgBKR += " " + filesOfUser + " " + time.strftime("%d.%m.%Y %H:%M:%S", dictFilesOfUser[filesOfUser][0]) + " " + dictFilesOfUser[filesOfUser][1]
-				numberOffilesToSend += 1
-			else:
-				print("not sending ", filesOfUser)"""
-		#saber qual e o BS
-		#saber quais os ficheiros a dar upda
+	
 		msgBKRfinal = "BKR " + BS[0] + " " + str(BS[1]) + " " + str(numberOffilesToSend) + msgBKR
 
 		TCPConnection.TCPWriteMessage(msgBKRfinal+"\n")
@@ -383,13 +425,6 @@ def backupDir(msgFromClient, TCPConnection):
 	
 	UDPConnection.UDPClose()
 
-	#MANDA CREDENTIALS DO USER E VERIFICA QUE FILES TÊM DE SER UPDATED 
-	#VÊ EM Q BS O USER TEM DE MANDAR OS FICHEIROS E MANDA O ENDEREÇO DO BS AO USER
-	#USER FECHA TCP COM CS E ABRE NOVA TCP COM BS
-	#USER AUTENTICA NO BS
-
-
-
 # --------------------------- MAIN ---------------------------
 dictTCPFunctions = {
 	"authenticateUser": authenticateUser,
@@ -402,7 +437,6 @@ dictTCPFunctions = {
 
 
 	}
-
 
 # ------------------------ SEPERATION OF PROCESSES ------------------------
 
